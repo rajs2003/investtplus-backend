@@ -175,3 +175,7 @@ dist
 .DS_Store
 
 .husky/_
+
+# docs files
+docs/api/
+docs/
