@@ -12,4 +12,4 @@ RUN bun install
 
 COPY --chown=node:node . .
 
-EXPOSE 5000
+EXPOSE 3002

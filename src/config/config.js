@@ -31,9 +31,9 @@ const envVarsSchema = Joi.object()
     TWILIO_VERIFY_SERVICE_SID: Joi.string().description('SID service details from TWILIO'),
     // Market Data Provider Configuration
     MARKET_DATA_PROVIDER: Joi.string()
-      .valid('angelone', 'kite')
+      .valid('angelone', 'kite', 'mock')
       .default('angelone')
-      .description('Market data provider (angelone or kite)'),
+      .description('Market data provider (angelone, kite, or mock for testing)'),
     // AngelOne Configuration
     ANGELONE_API_KEY: Joi.string().description('AngelOne SmartAPI Key'),
     ANGELONE_CLIENT_CODE: Joi.string().description('AngelOne Client Code'),

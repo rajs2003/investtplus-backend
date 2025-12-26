@@ -42,6 +42,16 @@ class MarketProviderFactory {
           webSocketService: angeloneServices.webSocketService,
         };
         logger.info('AngelOne services loaded successfully');
+      } else if (providerType === 'mock') {
+        this.provider = 'mock';
+        const mockServices = require('./mockMarketServices');
+        this.services = {
+          providerService: mockServices.mockService,
+          marketService: mockServices.marketService,
+          stockService: mockServices.stockService,
+          webSocketService: mockServices.webSocketService,
+        };
+        logger.info('Mock Market services loaded successfully (Testing Mode)');
       } else {
         throw new Error(`Unknown market data provider: ${providerType}`);
       }
@@ -104,11 +114,11 @@ class MarketProviderFactory {
 
   /**
    * Switch to a different provider (requires restart or re-initialization)
-   * @param {string} newProvider - New provider type (angelone or kite)
+   * @param {string} newProvider - New provider type (angelone, kite, or mock)
    */
   switchProvider(newProvider) {
-    if (newProvider !== 'angelone' && newProvider !== 'kite') {
-      throw new Error(`Invalid provider: ${newProvider}. Must be 'angelone' or 'kite'`);
+    if (newProvider !== 'angelone' && newProvider !== 'kite' && newProvider !== 'mock') {
+      throw new Error(`Invalid provider: ${newProvider}. Must be 'angelone', 'kite', or 'mock'`);
     }
 
     logger.warn(`Switching market data provider from ${this.provider} to ${newProvider}`);
