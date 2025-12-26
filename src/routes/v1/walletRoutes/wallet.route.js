@@ -29,11 +29,7 @@ router.get('/details', walletController.getWalletDetails);
  * @access  Private
  * @query   type, reason, orderId, startDate, endDate, sortBy, limit, page
  */
-router.get(
-  '/transactions',
-  validate(walletValidation.getTransactionHistory),
-  walletController.getTransactionHistory
-);
+router.get('/transactions', validate(walletValidation.getTransactionHistory), walletController.getTransactionHistory);
 
 /**
  * @route   GET /api/v1/wallet/transactions/summary
@@ -44,7 +40,7 @@ router.get(
 router.get(
   '/transactions/summary',
   validate(walletValidation.getTransactionSummary),
-  walletController.getTransactionSummary
+  walletController.getTransactionSummary,
 );
 
 /**
@@ -52,11 +48,7 @@ router.get(
  * @desc    Get single transaction details
  * @access  Private
  */
-router.get(
-  '/transactions/:transactionId',
-  validate(walletValidation.getTransaction),
-  walletController.getTransaction
-);
+router.get('/transactions/:transactionId', validate(walletValidation.getTransaction), walletController.getTransaction);
 
 /**
  * @route   POST /api/v1/wallet/add-funds
@@ -67,7 +59,7 @@ router.post(
   '/add-funds',
   auth('manageUsers'), // Admin permission
   validate(walletValidation.addFunds),
-  walletController.addFunds
+  walletController.addFunds,
 );
 
 module.exports = router;

@@ -18,7 +18,12 @@ router.post('/place', auth('user', 'admin', 'superadmin'), validate(orderValidat
  * @desc    Cancel an order
  * @access  Private
  */
-router.post('/:orderId/cancel', auth('user', 'admin', 'superadmin'), validate(orderValidation.cancelOrder), orderController.cancelOrder);
+router.post(
+  '/:orderId/cancel',
+  auth('user', 'admin', 'superadmin'),
+  validate(orderValidation.cancelOrder),
+  orderController.cancelOrder,
+);
 
 /**
  * @route   GET /v1/orders/pending
@@ -32,7 +37,12 @@ router.get('/pending', auth('user', 'admin', 'superadmin'), orderController.getP
  * @desc    Get order history
  * @access  Private
  */
-router.get('/history', auth('user', 'admin', 'superadmin'), validate(orderValidation.getOrders), orderController.getOrderHistory);
+router.get(
+  '/history',
+  auth('user', 'admin', 'superadmin'),
+  validate(orderValidation.getOrders),
+  orderController.getOrderHistory,
+);
 
 /**
  * @route   GET /v1/orders
@@ -46,13 +56,23 @@ router.get('/', auth('user', 'admin', 'superadmin'), validate(orderValidation.ge
  * @desc    Get order by ID
  * @access  Private
  */
-router.get('/:orderId', auth('user', 'admin', 'superadmin'), validate(orderValidation.getOrderById), orderController.getOrderById);
+router.get(
+  '/:orderId',
+  auth('user', 'admin', 'superadmin'),
+  validate(orderValidation.getOrderById),
+  orderController.getOrderById,
+);
 
 /**
  * @route   POST /v1/orders/:orderId/execute
  * @desc    Execute order manually (for testing/admin)
  * @access  Private
  */
-router.post('/:orderId/execute', auth('user', 'admin', 'superadmin'), validate(orderValidation.executeOrder), orderController.executeOrder);
+router.post(
+  '/:orderId/execute',
+  auth('user', 'admin', 'superadmin'),
+  validate(orderValidation.executeOrder),
+  orderController.executeOrder,
+);
 
 module.exports = router;

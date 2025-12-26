@@ -69,7 +69,7 @@ const watchlistSchema = mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 // Add plugins
@@ -98,9 +98,7 @@ watchlistSchema.set('toObject', { virtuals: true });
  * @returns {boolean}
  */
 watchlistSchema.methods.hasStock = function (symbol, exchange = 'NSE') {
-  return this.stocks.some(
-    (stock) => stock.symbol === symbol.toUpperCase() && stock.exchange === exchange
-  );
+  return this.stocks.some((stock) => stock.symbol === symbol.toUpperCase() && stock.exchange === exchange);
 };
 
 /**
@@ -139,9 +137,7 @@ watchlistSchema.methods.addStock = function (stockData) {
  */
 watchlistSchema.methods.removeStock = function (symbol, exchange = 'NSE') {
   const initialLength = this.stocks.length;
-  this.stocks = this.stocks.filter(
-    (stock) => !(stock.symbol === symbol.toUpperCase() && stock.exchange === exchange)
-  );
+  this.stocks = this.stocks.filter((stock) => !(stock.symbol === symbol.toUpperCase() && stock.exchange === exchange));
 
   if (this.stocks.length === initialLength) {
     throw new Error(`${symbol} not found in this watchlist`);
@@ -157,9 +153,7 @@ watchlistSchema.methods.removeStock = function (symbol, exchange = 'NSE') {
  * @param {string} exchange - Exchange
  */
 watchlistSchema.methods.updateStockPrice = function (symbol, price, exchange = 'NSE') {
-  const stock = this.stocks.find(
-    (s) => s.symbol === symbol.toUpperCase() && s.exchange === exchange
-  );
+  const stock = this.stocks.find((s) => s.symbol === symbol.toUpperCase() && s.exchange === exchange);
 
   if (stock) {
     stock.lastPrice = price;
@@ -175,7 +169,7 @@ watchlistSchema.methods.updateStockPrice = function (symbol, price, exchange = '
  */
 watchlistSchema.methods.reorderStocks = function (newOrder) {
   const reorderedStocks = [];
-  
+
   newOrder.forEach((symbol) => {
     const stock = this.stocks.find((s) => s.symbol === symbol.toUpperCase());
     if (stock) {
@@ -200,9 +194,7 @@ watchlistSchema.methods.reorderStocks = function (newOrder) {
  * @returns {Promise<Array>}
  */
 watchlistSchema.statics.getUserWatchlists = async function (userId) {
-  return this.find({ userId })
-    .sort({ sortOrder: 1, createdAt: 1 })
-    .lean();
+  return this.find({ userId }).sort({ sortOrder: 1, createdAt: 1 }).lean();
 };
 
 /**

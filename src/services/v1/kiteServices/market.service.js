@@ -1,6 +1,5 @@
 const kiteService = require('./kite.service');
 const logger = require('../../../config/logger');
-const { formatMarketData } = require('../../../utils/marketUtils');
 
 /**
  * Get LTP (Last Traded Price) for a specific stock
@@ -73,7 +72,7 @@ const getQuotes = async (exchange, symbolTokens) => {
     const kc = kiteService.getKiteInstance();
 
     // Format instruments as exchange:symbol
-    const instruments = symbolTokens.map(token => `${exchange}:${token}`);
+    const instruments = symbolTokens.map((token) => `${exchange}:${token}`);
     const response = await kc.getQuote(instruments);
 
     const quotes = [];
@@ -106,11 +105,10 @@ const searchStocks = async (searchText, exchange = '') => {
 
     // Get all instruments and filter
     const instruments = await kc.getInstruments(exchange || undefined);
-    
+
     const searchRegex = new RegExp(searchText, 'i');
-    const results = instruments.filter(instrument => 
-      searchRegex.test(instrument.tradingsymbol) || 
-      searchRegex.test(instrument.name)
+    const results = instruments.filter(
+      (instrument) => searchRegex.test(instrument.tradingsymbol) || searchRegex.test(instrument.name),
     );
 
     return results.slice(0, 20); // Limit to 20 results
@@ -147,31 +145,26 @@ const getAllHoldings = async () => {
  * @param {string} params.toDate - To date (YYYY-MM-DD)
  * @returns {Promise<Array>} Candle data
  */
-const getCandleData = async ({ exchange, symbolToken, interval, fromDate, toDate }) => {
+const getCandleData = async ({ symbolToken, interval, fromDate, toDate }) => {
   try {
     await kiteService.ensureLoggedIn();
     const kc = kiteService.getKiteInstance();
 
     // Convert interval format (AngelOne to Kite format)
     const intervalMap = {
-      'ONE_MINUTE': 'minute',
-      'THREE_MINUTE': '3minute',
-      'FIVE_MINUTE': '5minute',
-      'TEN_MINUTE': '10minute',
-      'FIFTEEN_MINUTE': '15minute',
-      'THIRTY_MINUTE': '30minute',
-      'ONE_HOUR': '60minute',
-      'ONE_DAY': 'day',
+      ONE_MINUTE: 'minute',
+      THREE_MINUTE: '3minute',
+      FIVE_MINUTE: '5minute',
+      TEN_MINUTE: '10minute',
+      FIFTEEN_MINUTE: '15minute',
+      THIRTY_MINUTE: '30minute',
+      ONE_HOUR: '60minute',
+      ONE_DAY: 'day',
     };
 
     const kiteInterval = intervalMap[interval] || interval;
 
-    const response = await kc.getHistoricalData(
-      symbolToken,
-      kiteInterval,
-      fromDate,
-      toDate
-    );
+    const response = await kc.getHistoricalData(symbolToken, kiteInterval, fromDate, toDate);
 
     return response;
   } catch (error) {

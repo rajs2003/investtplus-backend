@@ -69,10 +69,10 @@ class KiteService {
     try {
       if (this.isLoggedIn && this.accessToken) {
         logger.info('Already logged in to Kite Connect');
-        return { 
-          success: true, 
+        return {
+          success: true,
           message: 'Already logged in',
-          accessToken: this.accessToken 
+          accessToken: this.accessToken,
         };
       }
 
@@ -81,15 +81,15 @@ class KiteService {
       // 1. Redirect user to login URL
       // 2. Get request token from callback
       // 3. Generate session with request token
-      
+
       const loginUrl = this.kc.getLoginURL();
       logger.info('Kite Connect login URL generated');
-      
+
       return {
         success: false,
         requiresManualAuth: true,
         loginUrl,
-        message: 'Please complete login at the provided URL and call generateSession with request token'
+        message: 'Please complete login at the provided URL and call generateSession with request token',
       };
     } catch (error) {
       logger.error('Kite login error:', error);

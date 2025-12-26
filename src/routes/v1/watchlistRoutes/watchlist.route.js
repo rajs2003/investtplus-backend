@@ -1,8 +1,8 @@
 const express = require('express');
-const  auth  = require('../../../middlewares/auth');
+const auth = require('../../../middlewares/auth');
 const validate = require('../../../middlewares/validate');
 const watchlistValidation = require('../../../validations/watchlist.validation');
-const {watchlistController} = require('../../../controllers');
+const { watchlistController } = require('../../../controllers');
 
 const router = express.Router();
 
@@ -75,7 +75,7 @@ router.post(
   '/',
   auth('user', 'admin', 'superadmin'),
   validate(watchlistValidation.createWatchlist),
-  watchlistController.createWatchlist
+  watchlistController.createWatchlist,
 );
 
 /**
@@ -96,7 +96,7 @@ router.get(
   '/',
   auth('user', 'admin', 'superadmin'),
   validate(watchlistValidation.getWatchlists),
-  watchlistController.getUserWatchlists
+  watchlistController.getUserWatchlists,
 );
 
 /**
@@ -124,7 +124,7 @@ router.get(
   '/search',
   auth('user', 'admin', 'superadmin'),
   validate(watchlistValidation.searchStock),
-  watchlistController.searchStock
+  watchlistController.searchStock,
 );
 
 /**
@@ -159,7 +159,7 @@ router.get(
   '/:watchlistId',
   auth('user', 'admin', 'superadmin'),
   validate(watchlistValidation.getWatchlist),
-  watchlistController.getWatchlist
+  watchlistController.getWatchlist,
 );
 
 /**
@@ -209,7 +209,7 @@ router.patch(
   '/:watchlistId',
   auth('user', 'admin', 'superadmin'),
   validate(watchlistValidation.updateWatchlist),
-  watchlistController.updateWatchlist
+  watchlistController.updateWatchlist,
 );
 
 /**
@@ -239,7 +239,7 @@ router.delete(
   '/:watchlistId',
   auth('user', 'admin', 'superadmin'),
   validate(watchlistValidation.deleteWatchlist),
-  watchlistController.deleteWatchlist
+  watchlistController.deleteWatchlist,
 );
 
 /**
@@ -290,7 +290,7 @@ router.post(
   '/:watchlistId/stocks',
   auth('user', 'admin', 'superadmin'),
   validate(watchlistValidation.addStock),
-  watchlistController.addStock
+  watchlistController.addStock,
 );
 
 /**
@@ -332,7 +332,7 @@ router.delete(
   '/:watchlistId/stocks/:symbol',
   auth('user', 'admin', 'superadmin'),
   validate(watchlistValidation.removeStock),
-  watchlistController.removeStock
+  watchlistController.removeStock,
 );
 
 /**
@@ -378,7 +378,7 @@ router.put(
   '/:watchlistId/reorder',
   auth('user', 'admin', 'superadmin'),
   validate(watchlistValidation.reorderStocks),
-  watchlistController.reorderStocks
+  watchlistController.reorderStocks,
 );
 
 module.exports = router;

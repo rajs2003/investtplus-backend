@@ -158,7 +158,7 @@ const startOrderMonitoring = async () => {
           every: 2000, // 2 seconds
         },
         jobId: 'check-pending-orders-recurring',
-      }
+      },
     );
 
     logger.info('Order monitoring job started - checking pending orders every 2 seconds');

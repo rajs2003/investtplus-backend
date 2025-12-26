@@ -39,11 +39,7 @@ class AngelOneService {
 
       const totp = this.generateTOTP();
 
-      const loginResponse = await this.smartApi.generateSession(
-        config.angelone.clientCode,
-        config.angelone.password,
-        totp
-      );
+      const loginResponse = await this.smartApi.generateSession(config.angelone.clientCode, config.angelone.password, totp);
 
       if (loginResponse.status && loginResponse.data) {
         this.isLoggedIn = true;

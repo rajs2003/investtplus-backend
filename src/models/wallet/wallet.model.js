@@ -44,7 +44,7 @@ const walletSchema = mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 // Add plugins

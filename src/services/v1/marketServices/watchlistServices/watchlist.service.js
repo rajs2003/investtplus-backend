@@ -25,14 +25,14 @@ const createWatchlist = async (userId, watchlistData) => {
 
     // Count user's watchlists
     const watchlistCount = await Watchlist.countDocuments({ userId });
-    
+
     // Limit: 10 watchlists per user
     if (watchlistCount >= 10) {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Maximum 10 watchlists allowed per user');
     }
 
     // If this is the first watchlist, make it default
-    const isDefault = watchlistCount === 0 ? true : (watchlistData.isDefault || false);
+    const isDefault = watchlistCount === 0 ? true : watchlistData.isDefault || false;
 
     // If setting as default, unset other defaults
     if (isDefault) {
@@ -78,7 +78,7 @@ const getUserWatchlists = async (userId) => {
     // Check cache first (2 minutes TTL)
     const cacheKey = `watchlists:${userId}`;
     const redis = getRedisClient();
-    
+
     if (redis) {
       const cachedData = await redis.get(cacheKey);
       if (cachedData) {
@@ -153,11 +153,7 @@ const getWatchlistWithPrices = async (watchlistId, userId) => {
     const stocksWithPrices = await Promise.all(
       watchlist.stocks.map(async (stock) => {
         try {
-          const liveData = await marketService.getLTP(
-            stock.exchange,
-            stock.symbolToken,
-            stock.symbol
-          );
+          const liveData = await marketService.getLTP(stock.exchange, stock.symbolToken, stock.symbol);
 
           return {
             symbol: stock.symbol,
@@ -188,7 +184,7 @@ const getWatchlistWithPrices = async (watchlistId, userId) => {
             error: 'Price unavailable',
           };
         }
-      })
+      }),
     );
 
     return {
@@ -230,7 +226,7 @@ const addStockToWatchlist = async (watchlistId, userId, stockData) => {
       const stockInfo = await stockService.getRealtimeStockPrice(
         stockData.symbol,
         stockData.exchange || 'NSE',
-        stockData.symbolToken
+        stockData.symbolToken,
       );
 
       validatedStock = {
@@ -352,10 +348,7 @@ const updateWatchlist = async (watchlistId, userId, updateData) => {
     // Handle default flag
     if (updateData.isDefault === true) {
       // Unset other defaults
-      await Watchlist.updateMany(
-        { userId, isDefault: true, _id: { $ne: watchlistId } },
-        { isDefault: false }
-      );
+      await Watchlist.updateMany({ userId, isDefault: true, _id: { $ne: watchlistId } }, { isDefault: false });
       watchlist.isDefault = true;
     } else if (updateData.isDefault === false && watchlist.isDefault) {
       // Cannot unset default without setting another as default
@@ -486,10 +479,8 @@ const invalidateWatchlistCache = async (userId) => {
   try {
     const redis = getRedisClient();
     if (redis) {
-      const keys = [
-        `watchlists:${userId}`,
-      ];
-      await Promise.all(keys.map(key => redis.del(key)));
+      const keys = [`watchlists:${userId}`];
+      await Promise.all(keys.map((key) => redis.del(key)));
       logger.debug('Watchlist cache invalidated', { userId });
     }
   } catch (error) {
@@ -511,11 +502,7 @@ const batchUpdateWatchlistPrices = async (userId) => {
       if (watchlist.stocks && watchlist.stocks.length > 0) {
         for (const stock of watchlist.stocks) {
           try {
-            const liveData = await marketService.getLTP(
-              stock.exchange,
-              stock.symbolToken,
-              stock.symbol
-            );
+            const liveData = await marketService.getLTP(stock.exchange, stock.symbolToken, stock.symbol);
 
             watchlist.updateStockPrice(stock.symbol, liveData.ltp || 0, stock.exchange);
             updatedCount++;

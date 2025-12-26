@@ -83,7 +83,7 @@ const holdingSchema = mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 // Add plugins
@@ -129,7 +129,7 @@ holdingSchema.methods.addQuantity = function (quantity, price, orderId) {
   this.averageBuyPrice = newTotalInvestment / newTotalQuantity;
   this.quantity = newTotalQuantity;
   this.totalInvestment = newTotalInvestment;
-  
+
   if (orderId) {
     this.orderIds.push(orderId);
   }

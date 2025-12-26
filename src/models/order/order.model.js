@@ -9,7 +9,7 @@ const orderSchema = mongoose.Schema(
       required: true,
       index: true,
     },
-    
+
     // Stock Details
     symbol: {
       type: String,
@@ -34,7 +34,7 @@ const orderSchema = mongoose.Schema(
       type: String,
       trim: true,
     },
-    
+
     // Order Configuration
     orderType: {
       type: String,
@@ -53,7 +53,7 @@ const orderSchema = mongoose.Schema(
       required: true,
       enum: ['buy', 'sell'],
     },
-    
+
     // Quantity & Price
     quantity: {
       type: Number,
@@ -71,7 +71,7 @@ const orderSchema = mongoose.Schema(
       default: 0,
       min: 0,
     },
-    
+
     // Order Status
     status: {
       type: String,
@@ -80,7 +80,7 @@ const orderSchema = mongoose.Schema(
       default: 'pending',
       index: true,
     },
-    
+
     // Execution Details
     executedQuantity: {
       type: Number,
@@ -95,14 +95,14 @@ const orderSchema = mongoose.Schema(
     executedAt: {
       type: Date,
     },
-    
+
     // Financial Details
     orderValue: {
       type: Number,
       required: true,
       default: 0,
     },
-    
+
     // Charges Breakdown
     brokerage: {
       type: Number,
@@ -144,7 +144,7 @@ const orderSchema = mongoose.Schema(
       required: true,
       default: 0,
     },
-    
+
     // Metadata
     rejectionReason: {
       type: String,
@@ -160,7 +160,7 @@ const orderSchema = mongoose.Schema(
     expiredAt: {
       type: Date,
     },
-    
+
     // Additional Info
     description: {
       type: String,
@@ -173,7 +173,7 @@ const orderSchema = mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 // Plugins
@@ -245,13 +245,13 @@ orderSchema.statics.getPendingOrders = function (userId = null) {
 
 orderSchema.statics.getExecutedOrders = function (userId, startDate = null, endDate = null) {
   const query = { userId, status: 'executed' };
-  
+
   if (startDate || endDate) {
     query.executedAt = {};
     if (startDate) query.executedAt.$gte = new Date(startDate);
     if (endDate) query.executedAt.$lte = new Date(endDate);
   }
-  
+
   return this.find(query).sort({ executedAt: -1 });
 };
 
@@ -262,10 +262,10 @@ orderSchema.statics.getOrdersBySymbol = function (userId, symbol) {
 orderSchema.statics.getTodayOrders = function (userId) {
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
-  
+
   const endOfDay = new Date();
   endOfDay.setHours(23, 59, 59, 999);
-  
+
   return this.find({
     userId,
     createdAt: { $gte: startOfDay, $lte: endOfDay },
@@ -279,12 +279,12 @@ orderSchema.pre('save', function (next) {
     const priceToUse = this.price || this.executedPrice || 0;
     this.orderValue = this.quantity * priceToUse;
   }
-  
+
   // Calculate net amount if not set
   if (!this.netAmount) {
     this.netAmount = this.orderValue + this.totalCharges;
   }
-  
+
   next();
 });
 

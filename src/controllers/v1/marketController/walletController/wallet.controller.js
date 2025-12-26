@@ -52,7 +52,7 @@ const addFunds = catchAsync(async (req, res) => {
 const getTransactionHistory = catchAsync(async (req, res) => {
   const filter = pick(req.query, ['type', 'reason', 'orderId']);
   const options = pick(req.query, ['sortBy', 'limit', 'page']);
-  
+
   // Add date range filter if provided
   if (req.query.startDate || req.query.endDate) {
     filter.createdAt = {};
@@ -82,7 +82,7 @@ const getTransactionSummary = catchAsync(async (req, res) => {
  */
 const getTransaction = catchAsync(async (req, res) => {
   const transaction = await transactionService.getTransactionById(req.params.transactionId);
-  
+
   if (!transaction) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Transaction not found');
   }

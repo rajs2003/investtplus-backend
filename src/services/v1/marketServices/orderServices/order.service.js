@@ -66,7 +66,7 @@ const placeOrder = async (userId, orderData) => {
     if (!wallet.hasSufficientBalance(charges.netAmount)) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
-        `Insufficient balance. Required: ₹${charges.netAmount.toLocaleString('en-IN')}, Available: ₹${wallet.availableBalance.toLocaleString('en-IN')}`
+        `Insufficient balance. Required: ₹${charges.netAmount.toLocaleString('en-IN')}, Available: ₹${wallet.availableBalance.toLocaleString('en-IN')}`,
       );
     }
 
@@ -225,7 +225,7 @@ const getOrders = async (userId, filter = {}, options = {}) => {
  */
 const getOrderById = async (orderId, userId) => {
   const order = await Order.findById(orderId);
-  
+
   if (!order) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Order not found');
   }
@@ -266,7 +266,7 @@ const getTodayOrders = async (userId) => {
 const getOrderHistory = async (userId, filter = {}, options = {}) => {
   // Add status filter for executed orders
   filter.status = filter.status || { $in: ['executed', 'cancelled', 'rejected', 'expired'] };
-  
+
   return await getOrders(userId, filter, options);
 };
 

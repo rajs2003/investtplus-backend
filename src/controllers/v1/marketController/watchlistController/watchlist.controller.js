@@ -61,7 +61,7 @@ const getWatchlist = catchAsync(async (req, res) => {
 const updateWatchlist = catchAsync(async (req, res) => {
   const { watchlistId } = req.params;
   const watchlist = await watchlistService.updateWatchlist(watchlistId, req.user._id, req.body);
-  
+
   res.status(httpStatus.OK).json({
     success: true,
     message: 'Watchlist updated successfully',
@@ -77,7 +77,7 @@ const updateWatchlist = catchAsync(async (req, res) => {
 const deleteWatchlist = catchAsync(async (req, res) => {
   const { watchlistId } = req.params;
   await watchlistService.deleteWatchlist(watchlistId, req.user._id);
-  
+
   res.status(httpStatus.OK).json({
     success: true,
     message: 'Watchlist deleted successfully',
@@ -92,7 +92,7 @@ const deleteWatchlist = catchAsync(async (req, res) => {
 const addStock = catchAsync(async (req, res) => {
   const { watchlistId } = req.params;
   const watchlist = await watchlistService.addStockToWatchlist(watchlistId, req.user._id, req.body);
-  
+
   res.status(httpStatus.OK).json({
     success: true,
     message: 'Stock added to watchlist successfully',
@@ -108,14 +108,9 @@ const addStock = catchAsync(async (req, res) => {
 const removeStock = catchAsync(async (req, res) => {
   const { watchlistId, symbol } = req.params;
   const { exchange } = req.query;
-  
-  const watchlist = await watchlistService.removeStockFromWatchlist(
-    watchlistId,
-    req.user._id,
-    symbol,
-    exchange
-  );
-  
+
+  const watchlist = await watchlistService.removeStockFromWatchlist(watchlistId, req.user._id, symbol, exchange);
+
   res.status(httpStatus.OK).json({
     success: true,
     message: 'Stock removed from watchlist successfully',
@@ -131,9 +126,9 @@ const removeStock = catchAsync(async (req, res) => {
 const reorderStocks = catchAsync(async (req, res) => {
   const { watchlistId } = req.params;
   const { order } = req.body;
-  
+
   const watchlist = await watchlistService.reorderStocks(watchlistId, req.user._id, order);
-  
+
   res.status(httpStatus.OK).json({
     success: true,
     message: 'Stocks reordered successfully',
@@ -149,7 +144,7 @@ const reorderStocks = catchAsync(async (req, res) => {
 const searchStock = catchAsync(async (req, res) => {
   const { symbol } = req.query;
   const results = await watchlistService.findStockInWatchlists(req.user._id, symbol);
-  
+
   res.status(httpStatus.OK).json({
     success: true,
     message: results.length > 0 ? 'Stock found in watchlists' : 'Stock not found in any watchlist',

@@ -30,7 +30,10 @@ const envVarsSchema = Joi.object()
     TWILIO_PHONE_NUMBER: Joi.number().description('phone number from which call will take place'),
     TWILIO_VERIFY_SERVICE_SID: Joi.string().description('SID service details from TWILIO'),
     // Market Data Provider Configuration
-    MARKET_DATA_PROVIDER: Joi.string().valid('angelone', 'kite').default('angelone').description('Market data provider (angelone or kite)'),
+    MARKET_DATA_PROVIDER: Joi.string()
+      .valid('angelone', 'kite')
+      .default('angelone')
+      .description('Market data provider (angelone or kite)'),
     // AngelOne Configuration
     ANGELONE_API_KEY: Joi.string().description('AngelOne SmartAPI Key'),
     ANGELONE_CLIENT_CODE: Joi.string().description('AngelOne Client Code'),

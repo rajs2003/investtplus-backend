@@ -22,7 +22,7 @@ const getTransactionHistory = {
       'profit_realized',
       'loss_realized',
       'admin_credit',
-      'admin_debit'
+      'admin_debit',
     ),
     orderId: Joi.string(),
     startDate: Joi.date().iso(),

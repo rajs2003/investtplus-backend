@@ -67,7 +67,7 @@ const transactionSchema = mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 // Add plugins
@@ -86,7 +86,7 @@ transactionSchema.index({ orderId: 1 });
 // Static method to get transaction summary
 transactionSchema.statics.getTransactionSummary = async function (userId, startDate, endDate) {
   const match = { userId: new mongoose.Types.ObjectId(userId) };
-  
+
   if (startDate || endDate) {
     match.createdAt = {};
     if (startDate) match.createdAt.$gte = new Date(startDate);

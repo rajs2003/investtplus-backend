@@ -148,7 +148,7 @@ const getPopularStocks = async (limit = 10) => {
             error: 'Price unavailable',
           };
         }
-      })
+      }),
     );
 
     // Cache for 10 minutes
@@ -184,7 +184,7 @@ const getTopGainers = async (limit = 10) => {
 
     // Fetch popular stocks and sort by gain
     const stocks = await getPopularStocks(20); // Get more to filter
-    
+
     // Sort by changePercent descending
     const topGainers = stocks
       .filter((stock) => stock.changePercent > 0)
@@ -296,7 +296,7 @@ const getSectorPerformance = async () => {
             error: 'Data unavailable',
           };
         }
-      })
+      }),
     );
 
     // Sort by performance (descending)
@@ -361,16 +361,12 @@ const getPortfolioAnalytics = async (userId) => {
       const holdingsWithPrices = await Promise.all(
         holdings.map(async (holding) => {
           try {
-            const liveData = await marketService.getLTP(
-              holding.exchange,
-              holding.symbolToken,
-              holding.symbol
-            );
+            const liveData = await marketService.getLTP(holding.exchange, holding.symbolToken, holding.symbol);
             const currentPrice = liveData.ltp || holding.averagePrice;
             const holdingValue = holding.quantity * currentPrice;
             const invested = holding.quantity * holding.averagePrice;
             const pnl = holdingValue - invested;
-            
+
             totalInvested += invested;
             currentValue += holdingValue;
             totalPnL += pnl;
@@ -394,7 +390,7 @@ const getPortfolioAnalytics = async (userId) => {
             logger.warn(`Failed to fetch price for ${holding.symbol}`, error);
             return null;
           }
-        })
+        }),
       );
 
       // Filter out failed fetches
@@ -544,14 +540,7 @@ const getPlatformStatistics = async () => {
 
     const startOfDay = new Date(new Date().setHours(0, 0, 0, 0));
 
-    const [
-      totalUsers,
-      activeUsersToday,
-      totalOrders,
-      todayOrders,
-      totalHoldings,
-      totalTransactions,
-    ] = await Promise.all([
+    const [totalUsers, activeUsersToday, totalOrders, todayOrders, totalHoldings, totalTransactions] = await Promise.all([
       User.countDocuments(),
       Order.distinct('userId', { createdAt: { $gte: startOfDay } }).then((users) => users.length),
       Order.countDocuments(),

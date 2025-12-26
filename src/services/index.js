@@ -2,12 +2,7 @@
 const marketProviderFactory = require('./v1/marketProviderFactory');
 
 // Get services from the active provider
-const { 
-  providerService, 
-  marketService, 
-  stockService, 
-  webSocketService 
-} = marketProviderFactory.getAllServices();
+const { providerService, marketService, stockService, webSocketService } = marketProviderFactory.getAllServices();
 
 // Auth and User Services
 const { authService, emailService, otpService, tokenService } = require('./v1/authServices');
@@ -28,41 +23,40 @@ const { watchlistService } = require('./v1/marketServices/watchlistServices');
 
 const { dashboardService } = require('./v1/marketServices/dashboardServices');
 
-
 module.exports = {
   // Market Provider Factory
   marketProviderFactory,
-  
+
   // Market Data Services (dynamically loaded based on provider)
   providerService, // angelOneService or kiteService
   marketService,
   stockService,
   webSocketService,
-  
+
   // Legacy export for backward compatibility
   angelOneService: providerService, // Points to active provider
-  
+
   // Auth Services
   authService,
   emailService,
   otpService,
   tokenService,
-  
+
   // User Services
   userService,
-  
+
   // Market Simulation Services
   walletService,
   transactionService,
-  
+
   orderService,
   orderExecutionService,
   chargesService,
-  
+
   holdingService,
   tradeService,
-  
+
   watchlistService,
-  
+
   dashboardService,
 };

@@ -56,7 +56,7 @@ const getDeliveryHoldings = catchAsync(async (req, res) => {
 const getHoldingBySymbol = catchAsync(async (req, res) => {
   const { symbol } = req.params;
   const holdingType = req.query.holdingType || 'intraday';
-  
+
   const holding = await holdingService.getHoldingBySymbol(req.user.id, symbol, holdingType);
 
   res.status(httpStatus.OK).json({
@@ -99,7 +99,7 @@ const getPortfolioSummary = catchAsync(async (req, res) => {
 const getTradeHistory = catchAsync(async (req, res) => {
   const filter = pick(req.query, ['symbol', 'tradeType', 'startDate', 'endDate', 'isProfit']);
   const options = pick(req.query, ['sortBy', 'limit', 'page']);
-  
+
   const result = await tradeService.getTradeHistory(req.user.id, filter, options);
 
   res.status(httpStatus.OK).json({
@@ -150,16 +150,20 @@ const getTradeStatistics = catchAsync(async (req, res) => {
     totalCharges: `₹${stats.totalCharges.toLocaleString('en-IN')}`,
     avgPLPerTrade: `₹${stats.avgPLPerTrade.toLocaleString('en-IN')}`,
     winRate: `${stats.winRate.toFixed(2)}%`,
-    bestTrade: stats.bestTrade ? {
-      ...stats.bestTrade,
-      netPL: `₹${stats.bestTrade.netPL.toLocaleString('en-IN')}`,
-      plPercentage: `${stats.bestTrade.plPercentage.toFixed(2)}%`,
-    } : null,
-    worstTrade: stats.worstTrade ? {
-      ...stats.worstTrade,
-      netPL: `₹${stats.worstTrade.netPL.toLocaleString('en-IN')}`,
-      plPercentage: `${stats.worstTrade.plPercentage.toFixed(2)}%`,
-    } : null,
+    bestTrade: stats.bestTrade
+      ? {
+          ...stats.bestTrade,
+          netPL: `₹${stats.bestTrade.netPL.toLocaleString('en-IN')}`,
+          plPercentage: `${stats.bestTrade.plPercentage.toFixed(2)}%`,
+        }
+      : null,
+    worstTrade: stats.worstTrade
+      ? {
+          ...stats.worstTrade,
+          netPL: `₹${stats.worstTrade.netPL.toLocaleString('en-IN')}`,
+          plPercentage: `${stats.worstTrade.plPercentage.toFixed(2)}%`,
+        }
+      : null,
   };
 
   res.status(httpStatus.OK).json({

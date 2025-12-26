@@ -100,7 +100,7 @@ const getHoldings = async (userId, filter = {}) => {
     // Try to get from cache first (30 seconds TTL)
     const cacheKey = `holdings:${userId}:${filter.holdingType || 'all'}`;
     const redis = getRedisClient();
-    
+
     if (redis) {
       const cachedData = await redis.get(cacheKey);
       if (cachedData) {
@@ -117,20 +117,20 @@ const getHoldings = async (userId, filter = {}) => {
     }
 
     // Batch fetch market prices for all symbols
-    const symbols = [...new Set(holdings.map(h => h.symbol))];
+    const symbols = [...new Set(holdings.map((h) => h.symbol))];
     const priceMap = {};
-    
+
     // Get current prices for all symbols in parallel
     await Promise.all(
       symbols.map(async (symbol) => {
         try {
-          const exchange = holdings.find(h => h.symbol === symbol)?.exchange || 'NSE';
+          const exchange = holdings.find((h) => h.symbol === symbol)?.exchange || 'NSE';
           priceMap[symbol] = orderExecutionService.getCurrentMarketPrice(symbol, exchange);
         } catch (error) {
           logger.warn(`Failed to get price for ${symbol}`, error);
           priceMap[symbol] = 0;
         }
-      })
+      }),
     );
 
     // Update prices in bulk
@@ -212,7 +212,7 @@ const processSellOrder = async (order) => {
     if (order.executedQuantity > holding.quantity) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
-        `Cannot sell ${order.executedQuantity} shares. Only ${holding.quantity} shares available`
+        `Cannot sell ${order.executedQuantity} shares. Only ${holding.quantity} shares available`,
       );
     }
 
@@ -286,7 +286,7 @@ const getPortfolioSummary = async (userId) => {
     // Check cache first (60 seconds TTL)
     const cacheKey = `portfolio:summary:${userId}`;
     const redis = getRedisClient();
-    
+
     if (redis) {
       const cachedData = await redis.get(cacheKey);
       if (cachedData) {
@@ -465,7 +465,7 @@ const invalidateHoldingCache = async (userId) => {
         `holdings:${userId}:delivery`,
         `portfolio:summary:${userId}`,
       ];
-      await Promise.all(keys.map(key => redis.del(key)));
+      await Promise.all(keys.map((key) => redis.del(key)));
       logger.debug('Holdings cache invalidated', { userId });
     }
   } catch (error) {
@@ -486,11 +486,11 @@ const batchUpdatePrices = async (holdings) => {
   try {
     // Group by symbol to avoid duplicate price fetches
     const symbolMap = new Map();
-    holdings.forEach(holding => {
+    holdings.forEach((holding) => {
       if (!symbolMap.has(holding.symbol)) {
         symbolMap.set(holding.symbol, {
           exchange: holding.exchange,
-          holdings: []
+          holdings: [],
         });
       }
       symbolMap.get(holding.symbol).holdings.push(holding);
@@ -510,9 +510,9 @@ const batchUpdatePrices = async (holdings) => {
     const prices = await Promise.all(pricePromises);
 
     // Update all holdings with fetched prices
-    const priceMap = new Map(prices.map(p => [p.symbol, p.price]));
-    
-    holdings.forEach(holding => {
+    const priceMap = new Map(prices.map((p) => [p.symbol, p.price]));
+
+    holdings.forEach((holding) => {
       const price = priceMap.get(holding.symbol);
       if (price && price > 0) {
         holding.updateCurrentPrice(price);
@@ -520,7 +520,7 @@ const batchUpdatePrices = async (holdings) => {
     });
 
     // Batch save
-    await Promise.all(holdings.map(h => h.save()));
+    await Promise.all(holdings.map((h) => h.save()));
 
     return holdings;
   } catch (error) {

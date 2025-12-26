@@ -125,7 +125,7 @@ const tradeSchema = mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 // Add plugins
@@ -298,18 +298,8 @@ tradeSchema.statics.getTodayTrades = async function (userId) {
  * @param {Object} tradeData - Trade data
  */
 tradeSchema.statics.createFromOrders = async function (tradeData) {
-  const {
-    userId,
-    walletId,
-    holdingId,
-    symbol,
-    exchange,
-    tradeType,
-    buyOrder,
-    sellOrder,
-    quantity,
-    isAutoSquareOff,
-  } = tradeData;
+  const { userId, walletId, holdingId, symbol, exchange, tradeType, buyOrder, sellOrder, quantity, isAutoSquareOff } =
+    tradeData;
 
   const buyValue = quantity * buyOrder.executedPrice;
   const sellValue = quantity * sellOrder.executedPrice;

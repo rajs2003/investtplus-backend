@@ -2,7 +2,7 @@ const express = require('express');
 const auth = require('../../../middlewares/auth');
 const validate = require('../../../middlewares/validate');
 const dashboardValidation = require('../../../validations/dashboard.validation');
-const {dashboardController} = require('../../../controllers')
+const { dashboardController } = require('../../../controllers');
 
 const router = express.Router();
 
@@ -91,7 +91,7 @@ router.get(
   '/popular-stocks',
   auth('user', 'admin', 'superadmin'),
   validate(dashboardValidation.getPopularStocks),
-  dashboardController.getPopularStocks
+  dashboardController.getPopularStocks,
 );
 
 /**
@@ -121,7 +121,7 @@ router.get(
   '/top-gainers',
   auth('user', 'admin', 'superadmin'),
   validate(dashboardValidation.getTopGainers),
-  dashboardController.getTopGainers
+  dashboardController.getTopGainers,
 );
 
 /**
@@ -151,7 +151,7 @@ router.get(
   '/top-losers',
   auth('user', 'admin', 'superadmin'),
   validate(dashboardValidation.getTopLosers),
-  dashboardController.getTopLosers
+  dashboardController.getTopLosers,
 );
 
 /**

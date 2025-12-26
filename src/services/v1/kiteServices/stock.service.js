@@ -118,7 +118,7 @@ const getStockQuote = async (tradingSymbol, exchange) => {
 
     const standardizedExchange = parseExchange(exchange);
     const instrument = `${standardizedExchange}:${tradingSymbol}`;
-    
+
     const response = await kc.getQuote([instrument]);
 
     if (response && response[instrument]) {
@@ -147,14 +147,13 @@ const searchStock = async (query, exchange = 'NSE') => {
     const kc = kiteService.getKiteInstance();
 
     const instruments = await kc.getInstruments(exchange);
-    
+
     const searchRegex = new RegExp(query, 'i');
-    const results = instruments.filter(instrument => 
-      searchRegex.test(instrument.tradingsymbol) || 
-      searchRegex.test(instrument.name)
+    const results = instruments.filter(
+      (instrument) => searchRegex.test(instrument.tradingsymbol) || searchRegex.test(instrument.name),
     );
 
-    return results.slice(0, 20).map(instrument => ({
+    return results.slice(0, 20).map((instrument) => ({
       symbol: instrument.tradingsymbol,
       name: instrument.name,
       instrumentToken: instrument.instrument_token,
@@ -178,7 +177,7 @@ const getMultipleStockPrices = async (stocks) => {
     await kiteService.ensureLoggedIn();
     const kc = kiteService.getKiteInstance();
 
-    const instruments = stocks.map(stock => `${stock.exchange}:${stock.tradingSymbol}`);
+    const instruments = stocks.map((stock) => `${stock.exchange}:${stock.tradingSymbol}`);
     const response = await kc.getLTP(instruments);
 
     const prices = [];

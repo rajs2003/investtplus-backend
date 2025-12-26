@@ -18,7 +18,7 @@ class MarketProviderFactory {
    */
   initialize() {
     const providerType = config.marketDataProvider;
-    
+
     logger.info(`Initializing market data provider: ${providerType}`);
 
     try {

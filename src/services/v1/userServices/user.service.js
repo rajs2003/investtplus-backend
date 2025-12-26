@@ -1,7 +1,7 @@
 const httpStatus = require('http-status');
 const { User } = require('../../../models');
 const ApiError = require('../../../utils/ApiError');
-const {walletService} = require('../../index');
+const { walletService } = require('../../index');
 
 /**
  * Create a user
@@ -15,14 +15,14 @@ const createUser = async (userBody) => {
   if (await User.isPhoneNumberTaken(userBody.phoneNumber)) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Phone number already taken');
   }
-  
+
   // Create user
   const user = await User.create(userBody);
-  
+
   // Auto-create wallet with initial balance
   try {
     const wallet = await walletService.createWallet(user._id);
-    
+
     // Update user with walletId
     user.walletId = wallet._id;
     await user.save();
@@ -31,7 +31,7 @@ const createUser = async (userBody) => {
     await User.deleteOne({ _id: user._id });
     throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, error ? error.message : 'Failed to create wallet for user');
   }
-  
+
   return user;
 };
 

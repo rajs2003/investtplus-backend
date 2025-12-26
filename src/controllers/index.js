@@ -13,16 +13,15 @@ const holdingController = require('./v1/marketController/holdingController/holdi
 const watchlistController = require('./v1/marketController/watchlistController');
 const dashboardController = require('./v1/marketController/dashboardController');
 
-
 module.exports = {
   authController,
   userController,
-  
+
   // External Market Data
   marketController,
   stockController,
   websocketController,
-  
+
   // Market Simulation
   walletController,
   orderController,

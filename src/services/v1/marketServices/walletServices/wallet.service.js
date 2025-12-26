@@ -51,7 +51,7 @@ const getWalletByUserId = async (userId) => {
   if (!userId) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'User ID is required');
   }
-  
+
   const wallet = await Wallet.findOne({ userId });
   if (!wallet) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Wallet not found for this user');
@@ -66,7 +66,7 @@ const getWalletByUserId = async (userId) => {
  */
 const getWalletBalance = async (userId) => {
   const wallet = await getWalletByUserId(userId);
-  
+
   return {
     balance: wallet.balance,
     availableBalance: wallet.availableBalance,
@@ -92,16 +92,17 @@ const addFunds = async (userId, amount, reason = 'admin_credit', description = '
   if (!userId) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'User ID is required');
   }
-  
+
   if (typeof amount !== 'number' || isNaN(amount)) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Amount must be a valid number');
   }
-  
+
   if (amount <= 0) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Amount must be greater than 0');
   }
-  
-  if (amount > 100000000) { // Max 10 crore
+
+  if (amount > 100000000) {
+    // Max 10 crore
     throw new ApiError(httpStatus.BAD_REQUEST, 'Amount exceeds maximum limit of ₹10,00,00,000');
   }
 
@@ -149,11 +150,11 @@ const deductFunds = async (userId, amount, reason = 'stock_buy', orderId = null,
   if (!userId) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'User ID is required');
   }
-  
+
   if (typeof amount !== 'number' || isNaN(amount)) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Amount must be a valid number');
   }
-  
+
   if (amount <= 0) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Amount must be greater than 0');
   }
@@ -164,8 +165,8 @@ const deductFunds = async (userId, amount, reason = 'stock_buy', orderId = null,
   // Check sufficient balance with detailed message
   if (!wallet.hasSufficientBalance(amount)) {
     throw new ApiError(
-      httpStatus.BAD_REQUEST, 
-      `Insufficient balance. Required: ₹${amount.toLocaleString('en-IN')}, Available: ₹${wallet.availableBalance.toLocaleString('en-IN')}`
+      httpStatus.BAD_REQUEST,
+      `Insufficient balance. Required: ₹${amount.toLocaleString('en-IN')}, Available: ₹${wallet.availableBalance.toLocaleString('en-IN')}`,
     );
   }
 
@@ -231,22 +232,22 @@ const unlockFunds = async (userId, amount, orderId) => {
   if (!userId) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'User ID is required');
   }
-  
+
   if (typeof amount !== 'number' || isNaN(amount)) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Amount must be a valid number');
   }
-  
+
   if (amount <= 0) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Amount must be greater than 0');
   }
 
   const wallet = await getWalletByUserId(userId);
-  
+
   // Validate locked amount
   if (amount > wallet.lockedAmount) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      `Cannot unlock ₹${amount.toLocaleString('en-IN')}. Only ₹${wallet.lockedAmount.toLocaleString('en-IN')} is locked.`
+      `Cannot unlock ₹${amount.toLocaleString('en-IN')}. Only ₹${wallet.lockedAmount.toLocaleString('en-IN')} is locked.`,
     );
   }
 
@@ -263,7 +264,7 @@ const unlockFunds = async (userId, amount, orderId) => {
       amount,
       reason: 'refund',
       orderId,
-      balanceBefore: wallet.balance, 
+      balanceBefore: wallet.balance,
       balanceAfter: wallet.balance,
       description: `Order cancelled - funds unlocked: ₹${amount.toLocaleString('en-IN')}`,
     });

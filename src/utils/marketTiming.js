@@ -1,7 +1,7 @@
 /**
  * Market Timing Utility
  * Handles market open/close timing validations
- * 
+ *
  * Market Hours:
  * - Regular Session: 9:15 AM - 3:30 PM (Mon-Fri)
  * - Pre-Market: 9:00 AM - 9:15 AM (optional)
@@ -17,7 +17,7 @@ const isMarketOpen = () => {
   // FOR TESTING: Always return true
   // TODO: Re-enable market timing validation in production
   return true;
-  
+
   /* Production code:
   const now = new Date();
   const day = now.getDay(); // 0 = Sunday, 6 = Saturday
@@ -137,7 +137,7 @@ const getMarketStatus = () => {
     const closeMinutes = 15 * 60 + 30 - currentTime;
     const closeHours = Math.floor(closeMinutes / 60);
     const closeMins = closeMinutes % 60;
-    
+
     return {
       isOpen: true,
       status: 'open',

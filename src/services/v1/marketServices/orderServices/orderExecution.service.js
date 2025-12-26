@@ -17,19 +17,19 @@ const getCurrentMarketPrice = async (symbol, exchange = 'NSE') => {
   // TODO: Fetch from AngelOne API or Redis cache
   // For now, returning dummy price
   // In production: fetch from Redis cache using key `price:${exchange}:${symbol}`
-  
+
   // Dummy prices for testing
   const dummyPrices = {
-    RELIANCE: 2450.50,
+    RELIANCE: 2450.5,
     TCS: 3890.75,
-    INFY: 1456.20,
-    HDFCBANK: 1650.30,
+    INFY: 1456.2,
+    HDFCBANK: 1650.3,
     ICICIBANK: 960.45,
-    SBIN: 598.60,
-    BHARTIARTL: 1234.80,
+    SBIN: 598.6,
+    BHARTIARTL: 1234.8,
     ITC: 450.25,
-    WIPRO: 456.90,
-    LT: 3250.70,
+    WIPRO: 456.9,
+    LT: 3250.7,
   };
 
   // Use exchange parameter in future for exchange-specific prices
@@ -65,18 +65,18 @@ const executeMarketOrder = async (orderId) => {
     if (order.transactionType === 'buy') {
       // For BUY orders
       // Funds are already locked, now deduct them permanently
-      
+
       // If actual price is higher than estimated, check if user has enough balance
       if (actualOrderValue > order.orderValue) {
-        const additionalAmount = priceDifference + (order.totalCharges * (priceDifference / order.orderValue));
-        
+        const additionalAmount = priceDifference + order.totalCharges * (priceDifference / order.orderValue);
+
         const wallet = await walletService.getWalletByUserId(order.userId);
         const totalRequired = order.netAmount + additionalAmount;
-        
+
         if (wallet.lockedAmount < totalRequired) {
           throw new ApiError(
             httpStatus.BAD_REQUEST,
-            `Insufficient locked funds. Required: ₹${totalRequired.toLocaleString('en-IN')}, Locked: ₹${wallet.lockedAmount.toLocaleString('en-IN')}`
+            `Insufficient locked funds. Required: ₹${totalRequired.toLocaleString('en-IN')}, Locked: ₹${wallet.lockedAmount.toLocaleString('en-IN')}`,
           );
         }
       }
@@ -94,7 +94,6 @@ const executeMarketOrder = async (orderId) => {
         orderId: order.id,
         description: `BUY ${order.quantity} shares of ${order.symbol} at ₹${marketPrice.toLocaleString('en-IN')}`,
       });
-
     } else {
       // For SELL orders
       // Calculate proceeds (order value - charges)
@@ -135,11 +134,10 @@ const executeMarketOrder = async (orderId) => {
     }
 
     return order;
-
   } catch (error) {
     // Rollback on failure
     console.error('Order execution failed:', error);
-    
+
     // Mark order as rejected
     order.markAsRejected(error.message);
     await order.save();
@@ -202,7 +200,6 @@ const executeLimitOrder = async (orderId) => {
         orderId: order.id,
         description: `BUY ${order.quantity} shares of ${order.symbol} at ₹${executionPrice.toLocaleString('en-IN')} (Limit Order)`,
       });
-
     } else {
       // Credit proceeds to wallet
       const proceeds = order.orderValue - order.totalCharges;
@@ -235,10 +232,9 @@ const executeLimitOrder = async (orderId) => {
     }
 
     return order;
-
   } catch (error) {
     console.error('Limit order execution failed:', error);
-    
+
     order.markAsRejected(error.message);
     await order.save();
 
@@ -297,9 +293,8 @@ const executeStopLossOrder = async (orderId) => {
         orderId: order.id,
         description: `BUY ${order.quantity} shares of ${order.symbol} at ₹${executionPrice.toLocaleString('en-IN')} (Stop Loss Triggered)`,
       });
-
     } else {
-      const proceeds = (order.quantity * executionPrice) - order.totalCharges;
+      const proceeds = order.quantity * executionPrice - order.totalCharges;
       await walletService.creditSaleProceeds(order.userId, proceeds, orderId, false); // Loss scenario
 
       await transactionService.createTransaction({
@@ -328,10 +323,9 @@ const executeStopLossOrder = async (orderId) => {
     }
 
     return order;
-
   } catch (error) {
     console.error('Stop loss order execution failed:', error);
-    
+
     order.markAsRejected(error.message);
     await order.save();
 

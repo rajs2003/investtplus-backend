@@ -1,7 +1,7 @@
 /**
  * Charges Calculator Service
  * Calculates all trading charges as per real market standards
- * 
+ *
  * Formulas based on:
  * - Brokerage: ₹20 or 0.03% (whichever is lower)
  * - STT: 0.025% (varies by order type)

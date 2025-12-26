@@ -24,7 +24,7 @@ const getMultipleStocksPrices = {
           tradingSymbol: Joi.string().required(),
           exchange: Joi.string().required().valid('NSE', 'BSE', 'NFO', 'MCX', 'CDS', 'BFO'),
           symbolToken: Joi.string().required(),
-        })
+        }),
       )
       .min(1)
       .required(),
@@ -74,7 +74,7 @@ const getCandleData = {
         'FIFTEEN_MINUTE',
         'THIRTY_MINUTE',
         'ONE_HOUR',
-        'ONE_DAY'
+        'ONE_DAY',
       ),
     fromDate: Joi.string().required(),
     toDate: Joi.string().required(),
@@ -89,7 +89,7 @@ const wsSubscribe = {
         Joi.object().keys({
           exchangeType: Joi.number().required().valid(1, 2, 3, 4, 5),
           tokens: Joi.array().items(Joi.string()).min(1).required(),
-        })
+        }),
       )
       .min(1)
       .required(),
@@ -104,7 +104,7 @@ const wsUnsubscribe = {
         Joi.object().keys({
           exchangeType: Joi.number().required().valid(1, 2, 3, 4, 5),
           tokens: Joi.array().items(Joi.string()).min(1).required(),
-        })
+        }),
       )
       .min(1)
       .required(),

@@ -17,7 +17,7 @@ const placeOrder = catchAsync(async (req, res) => {
   if (orderData.orderVariant === 'market') {
     try {
       const executedOrder = await orderExecutionService.executeMarketOrder(order.id);
-      
+
       res.status(httpStatus.CREATED).json({
         success: true,
         message: 'Order placed and executed successfully',

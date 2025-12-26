@@ -1,6 +1,5 @@
 const kiteService = require('./kite.service');
 const logger = require('../../../config/logger');
-const WebSocket = require('ws');
 
 class KiteWebSocketService {
   constructor() {
@@ -20,7 +19,7 @@ class KiteWebSocketService {
     try {
       await kiteService.ensureLoggedIn();
       const accessToken = kiteService.getSessionData().accessToken;
-      
+
       if (!accessToken) {
         throw new Error('Access token not available');
       }
@@ -72,7 +71,6 @@ class KiteWebSocketService {
         logger.info('Order update received:', order);
         this.handleOrderUpdate(order);
       });
-
     } catch (error) {
       logger.error('Error connecting to Kite WebSocket:', error);
       throw error;
@@ -92,7 +90,7 @@ class KiteWebSocketService {
     logger.info(`Attempting to reconnect to Kite WebSocket (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
 
     setTimeout(() => {
-      this.connect().catch(error => {
+      this.connect().catch((error) => {
         logger.error('Reconnection failed:', error);
       });
     }, this.reconnectDelay);
@@ -143,7 +141,7 @@ class KiteWebSocketService {
       }
 
       // Store callbacks for each token
-      tokens.forEach(token => {
+      tokens.forEach((token) => {
         this.subscriptions.set(token.toString(), callback);
       });
 
@@ -169,7 +167,7 @@ class KiteWebSocketService {
         throw new Error('WebSocket not connected');
       }
 
-      tokens.forEach(token => {
+      tokens.forEach((token) => {
         this.subscriptions.delete(token.toString());
       });
 
