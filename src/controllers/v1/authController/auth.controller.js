@@ -6,6 +6,8 @@ const setAccessTokenCookie = require('../../../utils/cookieUtil');
 
 const register = catchAsync(async (req, res) => {
   try {
+    req.body.ldap = `${req.body.name}${Date.now()}@investtplus.com`;
+    req.body.role = 'user';
     const user = await userService.createUser(req.body);
     res.status(httpStatus.CREATED).send({ user });
   } catch (err) {

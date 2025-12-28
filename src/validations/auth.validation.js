@@ -6,8 +6,8 @@ const register = {
     email: Joi.string().required().email(),
     password: Joi.string().required().custom(password),
     name: Joi.string().required(),
-    role: Joi.string().required(),
-    ldap: Joi.string().required().alphanum(),
+    // role: Joi.string().required(),
+    // ldap: Joi.string().required().alphanum(),
     phoneNumber: Joi.string()
       .required()
       .pattern(/^[0-9]{10}$/),

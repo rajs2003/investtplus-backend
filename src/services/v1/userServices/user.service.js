@@ -1,7 +1,7 @@
 const httpStatus = require('http-status');
 const { User } = require('../../../models');
 const ApiError = require('../../../utils/ApiError');
-const { walletService } = require('../../index');
+// const { walletService } = require('../../');
 
 /**
  * Create a user
@@ -20,17 +20,17 @@ const createUser = async (userBody) => {
   const user = await User.create(userBody);
 
   // Auto-create wallet with initial balance
-  try {
-    const wallet = await walletService.createWallet(user._id);
+  // try {
+  //   const wallet = await walletService.createWallet(user._id);
 
-    // Update user with walletId
-    user.walletId = wallet._id;
-    await user.save();
-  } catch (error) {
-    // If wallet creation fails, delete the user and throw error
-    await User.deleteOne({ _id: user._id });
-    throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, error ? error.message : 'Failed to create wallet for user');
-  }
+  //   // Update user with walletId
+  //   user.walletId = wallet._id;
+  //   await user.save();
+  // } catch (error) {
+  //   // If wallet creation fails, delete the user and throw error
+  //   await User.deleteOne({ _id: user._id });
+  //   throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, error ? error.message : 'Failed to create wallet for user');
+  // }
 
   return user;
 };

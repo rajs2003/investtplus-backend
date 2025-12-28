@@ -9,7 +9,7 @@ const transactionService = require('./transaction.service');
  * @param {number} initialBalance
  * @returns {Promise<Wallet>}
  */
-const createWallet = async (userId, initialBalance = 1000000) => {
+const createWallet = async (userId, initialBalance = 10000) => {
   // Check if wallet already exists
   const existingWallet = await Wallet.findOne({ userId });
   if (existingWallet) {
