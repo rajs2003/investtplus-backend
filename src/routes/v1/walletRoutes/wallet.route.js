@@ -7,29 +7,46 @@ const { walletController } = require('../../../controllers');
 const router = express.Router();
 
 // All wallet routes require authentication
-router.use(auth('user', 'admin', 'superadmin'));
+// router.use(auth('user', 'admin', 'superadmin'));
 
 /**
  * @route   GET /api/v1/wallet
  * @desc    Get wallet balance and details
  * @access  Private
  */
-router.get('/', walletController.getWalletBalance);
+router.get('/', auth('user'), walletController.getWalletBalance);
+
+/**
+ * @route   POST /api/v1/wallet/create
+ * @desc    Create wallet for user
+ * @access  Private
+ */
+router.post('/create', auth('user'), walletController.createWallet);
 
 /**
  * @route   GET /api/v1/wallet/details
  * @desc    Get complete wallet information
  * @access  Private
  */
-router.get('/details', walletController.getWalletDetails);
-
+router.get('/details', auth('user'), walletController.getWalletDetails);
+/**
+ * @route   GET /api/v1/wallet/balance
+ * @desc    Get wallet balance (alias for root route)
+ * @access  Private
+ */
+router.get('/balance', auth('user'), walletController.getWalletBalance);
 /**
  * @route   GET /api/v1/wallet/transactions
  * @desc    Get transaction history with filters and pagination
  * @access  Private
  * @query   type, reason, orderId, startDate, endDate, sortBy, limit, page
  */
-router.get('/transactions', validate(walletValidation.getTransactionHistory), walletController.getTransactionHistory);
+router.get(
+  '/transactions',
+  auth('user'),
+  validate(walletValidation.getTransactionHistory),
+  walletController.getTransactionHistory,
+);
 
 /**
  * @route   GET /api/v1/wallet/transactions/summary
@@ -48,7 +65,12 @@ router.get(
  * @desc    Get single transaction details
  * @access  Private
  */
-router.get('/transactions/:transactionId', validate(walletValidation.getTransaction), walletController.getTransaction);
+router.get(
+  '/transactions/:transactionId',
+  auth('user'),
+  validate(walletValidation.getTransaction),
+  walletController.getTransaction,
+);
 
 /**
  * @route   POST /api/v1/wallet/add-funds
@@ -57,7 +79,7 @@ router.get('/transactions/:transactionId', validate(walletValidation.getTransact
  */
 router.post(
   '/add-funds',
-  auth('manageUsers'), // Admin permission
+  auth('admin'), // Admin permission
   validate(walletValidation.addFunds),
   walletController.addFunds,
 );
