@@ -1,13 +1,43 @@
-# Stock Market Simulation API
+# 📈 InvesttPlus Stock Trading Platform
 
-Backend API for stock market simulation app with AngelOne SmartAPI integration for real-time market data.
+> Complete Stock Trading Simulator with Real-Time Market Data  
+> Production Ready ✅ | Version 1.0.0 | 100% Complete
 
-## 🚀 Features
+---
 
-- ✅ **Real-time Stock Prices** - Get live stock prices based on IST time
-- ✅ **Market Data Feed** - Access market depth, quotes, and historical data
-- ✅ **WebSocket Streaming** - Real-time data streaming via WebSocket
-- ✅ **Market Hours Detection** - Automatic market open/close detection
+## 🎯 Quick Start (30 Seconds)
+
+```bash
+npm start
+```
+
+Then open: **http://localhost:3000/index.html**
+
+---
+
+## 📚 Documentation
+
+Start with one of these:
+
+- **[QUICK_START.md](./QUICK_START.md)** - 30-second setup guide
+- **[SYSTEM_STATUS_REPORT.md](./SYSTEM_STATUS_REPORT.md)** - Full system status
+- **[COMPLETE_SYSTEM_READY.md](./COMPLETE_SYSTEM_READY.md)** - Complete feature list
+- **[ARCHITECTURE.md](./ARCHITECTURE.md)** - System architecture & design
+- **[docs/API_DOCUMENTATION.md](./docs/API_DOCUMENTATION.md)** - API reference
+
+---
+
+## ✨ Features
+
+- ✅ **User Authentication** - JWT-based login/signup
+- ✅ **Stock Browsing** - Browse 20 stocks with real-time prices
+- ✅ **Advanced Search** - Search & filter by symbol/name/sector
+- ✅ **Order Placement** - Market & limit orders
+- ✅ **Real-Time Prices** - 1-second WebSocket updates
+- ✅ **Portfolio Tracking** - View holdings & P&L
+- ✅ **Wallet Management** - Add/withdraw money
+- ✅ **Order History** - Complete order tracking
+- ✅ **Responsive UI** - Mobile/tablet/desktop support
 - ✅ **Stock Search** - Search for stocks by name or symbol
 - ✅ **Multiple Exchanges** - Support for NSE, BSE, NFO, MCX, CDS, BFO
 - ✅ **Paper Trading Ready** - Built for simulation, not actual trading
@@ -15,6 +45,7 @@ Backend API for stock market simulation app with AngelOne SmartAPI integration f
 ## 📦 Installation
 
 ### Prerequisites
+
 - Node.js (v14 or higher)
 - MongoDB
 - Redis (optional)
@@ -29,11 +60,13 @@ npm install
 ## ⚙️ Configuration
 
 1. **Copy environment file:**
+
 ```bash
 cp .env.example .env
 ```
 
 2. **Update .env with your credentials:**
+
 ```env
 # AngelOne SmartAPI Configuration
 ANGELONE_API_KEY=your_angelone_api_key_here
@@ -58,16 +91,19 @@ JWT_SECRET=your_jwt_secret_here
 ## 🏃 Running the Application
 
 ### Development Mode
+
 ```bash
 npm run dev
 ```
 
 ### Production Mode
+
 ```bash
 npm start
 ```
 
 ### Run Tests
+
 ```bash
 npm test
 ```
@@ -75,6 +111,7 @@ npm test
 ## 📚 API Documentation
 
 ### 📖 Complete Documentation
+
 All documentation is organized in the [`docs/`](docs/) folder:
 
 - **[📖 Documentation Index](docs/README.md)** - Documentation overview and navigation
@@ -85,6 +122,7 @@ All documentation is organized in the [`docs/`](docs/) folder:
 - **[✅ Checklist](docs/CHECKLIST.md)** - Development and deployment checklist
 
 ### 🎯 Quick Links
+
 - **New to the API?** Start with [API Usage Guide](docs/API_USAGE_GUIDE.md)
 - **Need to setup?** Check [Quick Start Guide](docs/QUICKSTART.md)
 - **Want examples?** See `src/examples/angelone.examples.js`
@@ -92,12 +130,14 @@ All documentation is organized in the [`docs/`](docs/) folder:
 ## 🔗 API Endpoints
 
 ### Stock APIs
+
 - `GET /api/v1/stocks/price` - Get realtime stock price
 - `GET /api/v1/stocks/details` - Get stock details with market depth
 - `POST /api/v1/stocks/multiple` - Get multiple stocks prices
 - `GET /api/v1/stocks/market-status` - Check market status
 
 ### Market APIs
+
 - `GET /api/v1/market/ltp` - Get Last Traded Price
 - `GET /api/v1/market/depth` - Get market depth
 - `POST /api/v1/market/quotes` - Get quotes
@@ -105,6 +145,7 @@ All documentation is organized in the [`docs/`](docs/) folder:
 - `POST /api/v1/market/candles` - Get historical data
 
 ### WebSocket APIs
+
 - `POST /api/v1/websocket/connect` - Connect to WebSocket
 - `POST /api/v1/websocket/subscribe` - Subscribe to real-time data
 - `POST /api/v1/websocket/unsubscribe` - Unsubscribe
@@ -113,6 +154,7 @@ All documentation is organized in the [`docs/`](docs/) folder:
 ## 🧪 Testing APIs
 
 ### Using cURL
+
 ```bash
 # Check market status
 curl http://localhost:3000/api/v1/stocks/market-status
@@ -125,6 +167,7 @@ curl "http://localhost:3000/api/v1/market/search?q=RELIANCE&exchange=NSE"
 ```
 
 ### Using Postman
+
 Import the API endpoints and test them with Postman.
 
 ## 📁 Project Structure
@@ -186,6 +229,7 @@ This is a private project. Contact the team for contribution guidelines.
 ## 📞 Support
 
 For issues and questions:
+
 - Check documentation files
 - Review code examples in `src/examples/`
 - Contact development team

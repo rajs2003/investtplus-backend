@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio - InvesttPlus</title>
+    <link rel="stylesheet" href="portfolio.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="brand">📈 InvesttPlus</div>
+        <div class="user-menu">
+            <span class="user-name" id="userName">Welcome!</span>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+    </nav>
+
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+        <ul class="sidebar-menu">
+            <li><a href="../dashboard/index.html"><span class="icon">📊</span> Dashboard</a></li>
+            <li><a href="../wallet/index.html"><span class="icon">💰</span> Wallet</a></li>
+            <li><a href="../stocks/index.html"><span class="icon">📈</span> Stocks</a></li>
+            <li><a href="#" class="active"><span class="icon">📋</span> Portfolio</a></li>
+            <li><a href="../holdings/index.html"><span class="icon">🏦</span> Holdings</a></li>
+            <li><a href="../profile/index.html"><span class="icon">👤</span> Profile</a></li>
+        </ul>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Portfolio Header -->
+        <div class="dashboard-header">
+            <h1>Portfolio Overview</h1>
+            <p>Track your investments and portfolio performance</p>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="stats-grid">
+            <div class="stat-card neutral">
+                <div class="icon">💼</div>
+                <h3>Total Value</h3>
+                <div class="value" id="totalValue">Loading...</div>
+                <p>Current portfolio value</p>
+            </div>
+            <div class="stat-card positive">
+                <div class="icon">💰</div>
+                <h3>Total Invested</h3>
+                <div class="value" id="totalInvested">Loading...</div>
+                <p>Total amount invested</p>
+            </div>
+            <div class="stat-card" id="gainsCard">
+                <div class="icon">📈</div>
+                <h3>Total P&L</h3>
+                <div class="value" id="totalGains">Loading...</div>
+                <p id="gainsPercentage">Profit/Loss percentage</p>
+            </div>
+            <div class="stat-card neutral">
+                <div class="icon">📊</div>
+                <h3>Holdings</h3>
+                <div class="value" id="activePositions">Loading...</div>
+                <p>Active positions</p>
+            </div>
+        </div>
+
+        <!-- Portfolio Content -->
+        <div class="content-grid">
+            <!-- Asset Allocation -->
+            <div class="content-card">
+                <div class="card-header">
+                    <h2>Asset Allocation</h2>
+                    <button class="refresh-btn" id="refreshBtn">🔄 Refresh</button>
+                </div>
+                <div class="card-content">
+                    <div class="chart-container" id="allocationChart">
+                        <div class="loading">Loading allocation data...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Performance Chart -->
+            <div class="content-card">
+                <div class="card-header">
+                    <h2>Performance Overview</h2>
+                    <button class="export-btn" id="exportBtn">📤 Export</button>
+                </div>
+                <div class="card-content">
+                    <div class="chart-container" id="performanceChart">
+                        <div class="loading">Loading performance data...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Holdings Table -->
+        <div class="content-card full-width">
+            <div class="card-header">
+                <h2>Holdings Details</h2>
+                <div class="header-actions">
+                    <input type="text" id="searchInput" placeholder="Search holdings..." class="search-input">
+                </div>
+            </div>
+            <div class="card-content">
+                <div class="table-container">
+                    <table class="data-table" id="holdingsTable">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Quantity</th>
+                                <th>Avg Price</th>
+                                <th>Current Price</th>
+                                <th>Current Value</th>
+                                <th>P&L</th>
+                                <th>P&L %</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="holdingsTableBody">
+                            <tr>
+                                <td colspan="8" class="loading-row">
+                                    <div class="loading">Loading holdings data...</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="portfolio.js"></script>
+</body>
+</html>

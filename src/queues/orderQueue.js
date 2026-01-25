@@ -21,9 +21,22 @@ const orderQueue = new Queue('order-execution', {
     removeOnComplete: 100, // Keep last 100 completed jobs
     removeOnFail: 200, // Keep last 200 failed jobs
   },
+  // Prevent duplicate event listeners
+  settings: {
+    lockDuration: 30000, // 30 seconds
+    stalledInterval: 30000,
+    maxStalledCount: 1,
+  },
 });
 
 // Queue event handlers
+orderQueue.on('ready', () => {
+  logger.info('Order queue connected to Redis successfully', {
+    host: config.redis.host,
+    port: config.redis.port,
+  });
+});
+
 orderQueue.on('completed', (job, result) => {
   logger.info(`Order execution job ${job.id} completed`, {
     jobId: job.id,
@@ -46,9 +59,28 @@ orderQueue.on('stalled', (job) => {
 });
 
 orderQueue.on('error', (error) => {
-  logger.error('Order queue error', {
-    error: error.message,
+  logger.error('Order queue error - Bull queue connection issue', {
+    errorMessage: error.message,
+    errorName: error.name,
+    errorCode: error.code,
     stack: error.stack,
+    redisConfig: {
+      host: config.redis.host,
+      port: config.redis.port,
+      hasPassword: !!config.redis.password,
+    },
+  });
+});
+
+// Redis client error handler
+orderQueue.on('client:error', (error) => {
+  logger.error('Order queue Redis client error', {
+    errorMessage: error.message,
+    errorCode: error.code,
+    redisConfig: {
+      host: config.redis.host,
+      port: config.redis.port,
+    },
   });
 });
 

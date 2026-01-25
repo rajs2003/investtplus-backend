@@ -73,22 +73,11 @@ const getHoldingBySymbol = catchAsync(async (req, res) => {
 const getPortfolioSummary = catchAsync(async (req, res) => {
   const summary = await holdingService.getPortfolioSummary(req.user.id);
 
-  // Format amounts for display
-  const formattedSummary = {
-    ...summary,
-    totalInvestment: `₹${summary.totalInvestment.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-    currentValue: `₹${summary.currentValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-    unrealizedPL: `₹${summary.unrealizedPL.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-    unrealizedPLPercentage: `${summary.unrealizedPLPercentage.toFixed(2)}%`,
-    todayPL: `₹${summary.todayPL.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-    realizedPL: `₹${summary.realizedPL.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-    winRate: `${summary.winRate.toFixed(2)}%`,
-  };
-
+  // Return raw numbers - let frontend handle formatting
   res.status(httpStatus.OK).json({
     success: true,
     message: 'Portfolio summary retrieved successfully',
-    portfolio: formattedSummary,
+    portfolio: summary,
   });
 });
 

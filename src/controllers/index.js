@@ -2,9 +2,9 @@ const { authController } = require('./v1/authController');
 const { userController } = require('./v1/userController');
 
 // External Market Data Controllers (AngelOne/Kite APIs)
-const marketController = require('./v1/market.controller');
+// const marketController = require('./v1/marketController/market.controller');
 const { stockController } = require('./v1/stockController');
-const { websocketController } = require('./v1/websocketController');
+// const { websocketController } = require('./v1/websocketController');
 
 // Market Simulation Controllers
 const walletController = require('./v1/marketController/walletController');
@@ -17,10 +17,9 @@ module.exports = {
   authController,
   userController,
 
-  // External Market Data
-  marketController,
+  // marketController,
   stockController,
-  websocketController,
+  // websocketController,
 
   // Market Simulation
   walletController,

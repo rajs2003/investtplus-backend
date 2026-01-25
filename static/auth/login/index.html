@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - InvesttPlus</title>
+    
+    <!-- Preconnect for performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- Inter font for modern look -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Enhanced CSS -->
+    <link rel="stylesheet" href="./login.css">
+</head>
+
+<body>
+    <div class="login-container">
+        <div class="logo">
+            <h1>InvesttPlus</h1>
+            <p>Welcome back! Please login to your account.</p>
+        </div>
+
+        <div id="message" class="message" role="alert" aria-live="polite"></div>
+
+        <form id="loginForm" autocomplete="off" novalidate>
+            <div class="form-group">
+                <label for="phone">Phone Number</label>
+                <input
+                    type="tel"
+                    id="phone"
+                    name="phone"
+                    placeholder="Enter your 10-digit phone number"
+                    autocomplete="tel"
+                    inputmode="numeric"
+                    maxlength="10"
+                    value="9931449755"
+                    required
+                    aria-describedby="phone-error"
+                />
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <div class="password-container">
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        placeholder="Enter your password"
+                        autocomplete="current-password"
+                        value="Test@12345"
+                        required
+                        aria-describedby="password-error"
+                    />
+                    <button type="button" class="password-toggle" aria-label="Toggle password visibility">
+                        <span id="toggleText">Show</span>
+                    </button>
+                </div>
+            </div>
+
+            <button type="submit" class="login-btn" id="loginBtn">
+                <span class="spinner" id="spinner"></span>
+                <span id="btnText">Login</span>
+            </button>
+        </form>
+
+        <div class="links">
+            <a href="../register/index.html">Create Account</a>
+            <div class="divider">•</div>
+            <a href="#" onclick="alert('Forgot password feature coming soon!')">Forgot Password?</a>
+        </div>
+    </div>
+
+    <!-- Enhanced JavaScript -->
+    <script src="./login.js"></script>
+</body>
+</html>

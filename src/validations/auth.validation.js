@@ -48,6 +48,9 @@ const resetPassword = {
   }),
 };
 
+const sendVerificationEmail = {
+  body: Joi.object().keys({}),
+};
 const verifyEmail = {
   params: Joi.object().keys({
     token: Joi.string().required(),
@@ -62,39 +65,6 @@ const verifyOtp = {
       .pattern(/^[0-9]{10}$/),
   }),
 };
-const hospitalOtp = {
-  body: Joi.object().keys({
-    otp: Joi.string().required(),
-    phoneNumber: Joi.string()
-      .required()
-      .pattern(/^[0-9]{10}$/),
-    posContact: Joi.string()
-      .required()
-      .pattern(/^[0-9]{10}$/),
-  }),
-};
-const operatorOtp = {
-  body: Joi.object().keys({
-    otp: Joi.string().required(),
-    phoneNumber: Joi.string()
-      .required()
-      .pattern(/^[0-9]{10}$/),
-    alternateContact: Joi.string()
-      .required()
-      .pattern(/^[0-9]{10}$/),
-  }),
-};
-const patientOtp = {
-  body: Joi.object().keys({
-    otp: Joi.string().required(),
-    phoneNumber: Joi.string()
-      .required()
-      .pattern(/^[0-9]{10}$/),
-    alternateContact: Joi.string()
-      .required()
-      .pattern(/^[0-9]{10}$/),
-  }),
-};
 
 module.exports = {
   register,
@@ -103,9 +73,7 @@ module.exports = {
   refreshTokens,
   forgotPassword,
   resetPassword,
+  sendVerificationEmail,
   verifyEmail,
   verifyOtp,
-  hospitalOtp,
-  operatorOtp,
-  patientOtp,
 };

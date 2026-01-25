@@ -1,5 +1,7 @@
 const express = require('express');
 const auth = require('../../../middlewares/auth');
+const validate = require('../../../middlewares/validate');
+const { holdingValidation } = require('../../../validations');
 const { holdingController } = require('../../../controllers');
 
 const router = express.Router();
@@ -9,63 +11,73 @@ const router = express.Router();
  * @desc    Get all holdings (intraday + delivery)
  * @access  Private
  */
-router.get('/', auth('user'), holdingController.getHoldings);
+router.get('/', auth('user'), validate(holdingValidation.getHoldings), holdingController.getHoldings);
 
 /**
  * @route   GET /v1/holdings/all
  * @desc    Get all holdings (alias for root route)
  * @access  Private
  */
-router.get('/all', auth('user'), holdingController.getHoldings);
+router.get('/all', auth('user'), validate(holdingValidation.getHoldings), holdingController.getHoldings);
 
 /**
  * @route   GET /v1/holdings/intraday
  * @desc    Get intraday holdings only
  * @access  Private
  */
-router.get('/intraday', auth('user'), holdingController.getIntradayHoldings);
+router.get('/intraday', auth('user'), validate(holdingValidation.getHoldings), holdingController.getIntradayHoldings);
 
 /**
  * @route   GET /v1/holdings/delivery
  * @desc    Get delivery holdings only
  * @access  Private
  */
-router.get('/delivery', auth('user'), holdingController.getDeliveryHoldings);
+router.get('/delivery', auth('user'), validate(holdingValidation.getHoldings), holdingController.getDeliveryHoldings);
 
 /**
  * @route   GET /v1/holdings/portfolio/summary
  * @desc    Get portfolio summary with P&L
  * @access  Private
  */
-router.get('/portfolio/summary', auth('user'), holdingController.getPortfolioSummary);
+router.get(
+  '/portfolio/summary',
+  auth('user'),
+  validate(holdingValidation.getPortfolioSummary),
+  holdingController.getPortfolioSummary,
+);
 
 /**
  * @route   GET /v1/holdings/trades
  * @desc    Get trade history with filters
  * @access  Private
  */
-router.get('/trades', auth('user'), holdingController.getTradeHistory);
+router.get('/trades', auth('user'), validate(holdingValidation.getTradeHistory), holdingController.getTradeHistory);
 
 /**
  * @route   GET /v1/holdings/trades/stats
  * @desc    Get trade statistics
  * @access  Private
  */
-router.get('/trades/stats', auth('user'), holdingController.getTradeStatistics);
+router.get(
+  '/trades/stats',
+  auth('user'),
+  validate(holdingValidation.getTradeStatistics),
+  holdingController.getTradeStatistics,
+);
 
 /**
  * @route   GET /v1/holdings/trades/today
  * @desc    Get today's completed trades
  * @access  Private
  */
-router.get('/trades/today', auth('user'), holdingController.getTodayTrades);
+router.get('/trades/today', auth('user'), validate(holdingValidation.getTodayTrades), holdingController.getTodayTrades);
 
 /**
  * @route   GET /v1/holdings/trades/:tradeId
  * @desc    Get specific trade details
  * @access  Private
  */
-router.get('/trades/:tradeId', auth('user'), holdingController.getTradeById);
+router.get('/trades/:tradeId', auth('user'), validate(holdingValidation.getTradeById), holdingController.getTradeById);
 
 /**
  * @route   GET /v1/holdings/:symbol
@@ -73,6 +85,6 @@ router.get('/trades/:tradeId', auth('user'), holdingController.getTradeById);
  * @access  Private
  * @query   holdingType (intraday/delivery)
  */
-router.get('/:symbol', auth('user'), holdingController.getHoldingBySymbol);
+router.get('/:symbol', auth('user'), validate(holdingValidation.getHoldingBySymbol), holdingController.getHoldingBySymbol);
 
 module.exports = router;

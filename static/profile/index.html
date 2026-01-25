@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InvesttPlus - Profile</title>
+    <link rel="icon" href="../assets/images/logo.png" type="image/png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="profile.css">
+</head>
+
+<body>
+    <!-- Top Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-left">
+            <div class="logo">
+                <span class="logo-icon">📈</span>
+                <span class="logo-text">InvesttPlus</span>
+            </div>
+        </div>
+        
+        <div class="nav-center">
+            <div class="search-container">
+                <input type="text" id="searchInput" placeholder="Search..." class="search-input">
+                <span class="search-icon">🔍</span>
+            </div>
+        </div>
+        
+        <div class="nav-right">
+            <div class="user-section">
+                <span id="userName">Welcome!</span>
+                <button class="user-menu-btn" onclick="logout()">🚪</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="main-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <nav class="sidebar-nav">
+                <ul class="nav-list">
+                    <li class="nav-item">
+                        <a href="../dashboard/" class="nav-link">
+                            <span class="nav-icon">🏠</span>
+                            <span class="nav-text">Dashboard</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="../portfolio/" class="nav-link">
+                            <span class="nav-icon">💼</span>
+                            <span class="nav-text">Portfolio</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="../holdings/" class="nav-link">
+                            <span class="nav-icon">📊</span>
+                            <span class="nav-text">Holdings</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="../stocks/" class="nav-link">
+                            <span class="nav-icon">📈</span>
+                            <span class="nav-text">Stocks</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="../wallet/" class="nav-link">
+                            <span class="nav-icon">💳</span>
+                            <span class="nav-text">Wallet</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="../profile/" class="nav-link active">
+                            <span class="nav-icon">👤</span>
+                            <span class="nav-text">Profile</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="page-header">
+                <div class="header-content">
+                    <h1 class="page-title">Profile Settings</h1>
+                    <p class="page-subtitle">Manage your account settings and preferences</p>
+                </div>
+                <div class="header-actions">
+                    <button id="editBtn" class="btn-primary">
+                        ✏️ Edit Profile
+                    </button>
+                    <button id="saveBtn" class="btn-save" style="display: none;">
+                        💾 Save Changes
+                    </button>
+                </div>
+            </div>
+
+            <!-- Profile Layout -->
+            <div class="profile-layout">
+                <!-- Profile Card -->
+                <div class="card">
+                    <div class="profile-avatar">
+                        <div class="avatar-container">
+                            <div class="avatar" id="userAvatar">👤</div>
+                            <button class="avatar-upload" onclick="uploadAvatar()">📷</button>
+                            <input type="file" id="avatarInput" accept="image/*" style="display: none;">
+                        </div>
+                        <div class="user-name" id="displayUserName">Loading...</div>
+                        <div class="user-email" id="displayUserEmail">Loading...</div>
+                        <span class="user-status">✅ Verified</span>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-value" id="memberSince">0</div>
+                            <div class="stat-label">Member Since</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="totalTrades">0</div>
+                            <div class="stat-label">Total Trades</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="portfolioValue">₹0</div>
+                            <div class="stat-label">Portfolio Value</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Personal Information -->
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h3 class="card-title">Personal Information</h3>
+                            <p class="card-subtitle">Update your personal details</p>
+                        </div>
+                    </div>
+
+                    <form id="profileForm">
+                        <div class="form-group">
+                            <label for="name" class="form-label">Full Name</label>
+                            <input type="text" id="name" name="name" class="form-input" disabled>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email" class="form-label">Email Address</label>
+                            <input type="email" id="email" name="email" class="form-input" disabled>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="phoneNumber" class="form-label">Phone Number</label>
+                            <input type="tel" id="phoneNumber" name="phoneNumber" class="form-input" disabled>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="role" class="form-label">Account Role</label>
+                            <input type="text" id="role" name="role" class="form-input" disabled>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="accountSetupCompleted" class="form-label">Account Setup</label>
+                                <input type="text" id="accountSetupCompleted" name="accountSetupCompleted" class="form-input" disabled>
+                            </div>
+                            <div class="form-group">
+                                <label for="isEmailVerified" class="form-label">Email Verification</label>
+                                <input type="text" id="isEmailVerified" name="isEmailVerified" class="form-input" disabled>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Security Settings -->
+            <div class="card security-card">
+                <div class="card-header">
+                    <div>
+                        <h3 class="card-title">Security Settings</h3>
+                        <p class="card-subtitle">Manage your account security</p>
+                    </div>
+                </div>
+
+                <div class="security-item">
+                    <div class="security-info">
+                        <h4>Password</h4>
+                        <p>Last updated 30 days ago</p>
+                    </div>
+                    <button class="security-action" onclick="changePassword()">Change</button>
+                </div>
+
+                <div class="security-item">
+                    <div class="security-info">
+                        <h4>Two-Factor Authentication</h4>
+                        <p>Secure your account with 2FA</p>
+                    </div>
+                    <button class="security-action" onclick="toggle2FA()">Enable</button>
+                </div>
+
+                <div class="security-item">
+                    <div class="security-info">
+                        <h4>Login Sessions</h4>
+                        <p>Manage your active sessions</p>
+                    </div>
+                    <button class="security-action" onclick="viewSessions()">View</button>
+                </div>
+
+                <div class="security-item">
+                    <div class="security-info">
+                        <h4>Account Deletion</h4>
+                        <p>Permanently delete your account</p>
+                    </div>
+                    <button class="security-action" onclick="deleteAccount()" style="color: #f87171;">Delete</button>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="card">
+                <div class="card-header">
+                    <div>
+                        <h3 class="card-title">Recent Activity</h3>
+                        <p class="card-subtitle">Your recent account activities</p>
+                    </div>
+                </div>
+
+                <div class="activity-timeline" id="activityTimeline">
+                    <div class="loading">Loading activity...</div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Password Change Modal -->
+    <div id="passwordModal" class="modal" style="display: none;">
+        <div class="modal-overlay" onclick="closePasswordModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Change Password</h3>
+                <button class="modal-close" onclick="closePasswordModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <form id="passwordForm">
+                    <div class="form-group">
+                        <label for="currentPassword" class="form-label">Current Password</label>
+                        <input type="password" id="currentPassword" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newPassword" class="form-label">New Password</label>
+                        <input type="password" id="newPassword" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmPassword" class="form-label">Confirm New Password</label>
+                        <input type="password" id="confirmPassword" class="form-input" required>
+                    </div>
+                    <div class="action-buttons">
+                        <button type="button" class="btn-cancel" onclick="closePasswordModal()">Cancel</button>
+                        <button type="submit" class="btn-save">Change Password</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="profile.js"></script>
+</body>
+
+</html>

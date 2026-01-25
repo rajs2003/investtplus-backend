@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InvesttPlus - Stocks</title>
+    <link rel="icon" href="../assets/images/logo.png" type="image/png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="stocks.css">
+</head>
+
+<body>
+    <!-- Top Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-left">
+            <div class="logo">
+                <span class="logo-icon">📈</span>
+                <span class="logo-text">InvesttPlus</span>
+            </div>
+        </div>
+        
+        <div class="nav-center">
+            <div class="search-container">
+                <input type="text" id="searchInput" placeholder="Search stocks..." class="search-input">
+                <span class="search-icon">🔍</span>
+            </div>
+        </div>
+        
+        <div class="nav-right">
+            <div class="market-status" id="marketStatus">
+                <span class="status-dot"></span>
+                <span class="status-text">Loading...</span>
+            </div>
+            <div class="user-section">
+                <span id="userName">Welcome!</span>
+                <button class="user-menu-btn" onclick="logout()">🚪</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="main-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <nav class="sidebar-nav">
+                <ul class="nav-list">
+                    <li class="nav-item">
+                        <a href="../dashboard/" class="nav-link">
+                            <span class="nav-icon">🏠</span>
+                            <span class="nav-text">Dashboard</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="../portfolio/" class="nav-link">
+                            <span class="nav-icon">💼</span>
+                            <span class="nav-text">Portfolio</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="../holdings/" class="nav-link">
+                            <span class="nav-icon">📊</span>
+                            <span class="nav-text">Holdings</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="../stocks/" class="nav-link active">
+                            <span class="nav-icon">📈</span>
+                            <span class="nav-text">Stocks</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="../wallet/" class="nav-link">
+                            <span class="nav-icon">💳</span>
+                            <span class="nav-text">Wallet</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="../profile/" class="nav-link">
+                            <span class="nav-icon">👤</span>
+                            <span class="nav-text">Profile</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="page-header">
+                <div class="header-content">
+                    <h1 class="page-title">Stock Market</h1>
+                    <p class="page-subtitle">Real-time stock prices and trading</p>
+                </div>
+                <div class="header-actions">
+                    <button id="refreshBtn" class="btn-secondary" onclick="refreshStocks()">
+                        🔄 Refresh
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filter Section -->
+            <div class="filter-section card">
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label for="sectorFilter">Sector</label>
+                        <select id="sectorFilter" class="filter-select" onchange="filterStocks()">
+                            <option value="">All Sectors</option>
+                            <option value="Technology">Technology</option>
+                            <option value="Banking">Banking</option>
+                            <option value="Pharmaceutical">Pharmaceutical</option>
+                            <option value="Energy">Energy</option>
+                            <option value="FMCG">FMCG</option>
+                            <option value="Automobile">Automobile</option>
+                            <option value="Telecom">Telecom</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="sortBy">Sort By</label>
+                        <select id="sortBy" class="filter-select" onchange="sortStocks()">
+                            <option value="symbol">Symbol</option>
+                            <option value="price">Price</option>
+                            <option value="change">% Change</option>
+                            <option value="volume">Volume</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Connection</label>
+                        <div class="connection-status" id="connectionStatus">
+                            <span class="status-dot"></span>
+                            <span class="status-text">Disconnected</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stocks Grid -->
+            <div class="stocks-grid" id="stocksGrid">
+                <div class="loading-container">
+                    <div class="loading-spinner"></div>
+                    <p>Loading stocks...</p>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination" id="pagination" style="display: none;">
+                <button class="pagination-btn" id="prevBtn" onclick="previousPage()">← Previous</button>
+                <span class="pagination-info" id="pageInfo">Page 1 of 1</span>
+                <button class="pagination-btn" id="nextBtn" onclick="nextPage()">Next →</button>
+            </div>
+        </main>
+    </div>
+
+    <!-- Socket.IO Client Library -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="stocks.js"></script>
+</body>
+
+</html>

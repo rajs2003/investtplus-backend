@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InvesttPlus - Wallet</title>
+    <link rel="icon" href="../assets/images/logo.png" type="image/png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="wallet.css">
+</head>
+
+<body>
+    <!-- Top Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-left">
+            <div class="logo">
+                <span class="logo-icon">📈</span>
+                <span class="logo-text">InvesttPlus</span>
+            </div>
+        </div>
+        
+        <div class="nav-center">
+            <div class="search-container">
+                <input type="text" id="searchInput" placeholder="Search transactions..." class="search-input">
+                <span class="search-icon">🔍</span>
+            </div>
+        </div>
+        
+        <div class="nav-right">
+            <div class="user-section">
+                <span id="userName">Welcome!</span>
+                <button class="user-menu-btn" onclick="logout()">🚪</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="main-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <nav class="sidebar-nav">
+                <ul class="nav-list">
+                    <li class="nav-item">
+                        <a href="../dashboard/" class="nav-link">
+                            <span class="nav-icon">🏠</span>
+                            <span class="nav-text">Dashboard</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="../portfolio/" class="nav-link">
+                            <span class="nav-icon">💼</span>
+                            <span class="nav-text">Portfolio</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="../holdings/" class="nav-link">
+                            <span class="nav-icon">📊</span>
+                            <span class="nav-text">Holdings</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="../stocks/" class="nav-link">
+                            <span class="nav-icon">📈</span>
+                            <span class="nav-text">Stocks</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="../wallet/" class="nav-link active">
+                            <span class="nav-icon">💳</span>
+                            <span class="nav-text">Wallet</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="../profile/" class="nav-link">
+                            <span class="nav-icon">👤</span>
+                            <span class="nav-text">Profile</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="page-header">
+                <div class="header-content">
+                    <h1 class="page-title">Wallet</h1>
+                    <p class="page-subtitle">Manage your funds and view transaction history</p>
+                </div>
+                <div class="header-actions">
+                    <button id="refreshBtn" class="btn-secondary" onclick="refreshWallet()">
+                        🔄 Refresh
+                    </button>
+                </div>
+            </div>
+
+            <!-- Wallet Summary Cards -->
+            <div class="wallet-summary">
+                <div class="summary-card balance-card">
+                    <div class="card-icon">💰</div>
+                    <div class="card-content">
+                        <h3 class="card-title">Total Balance</h3>
+                        <div class="card-value" id="totalBalance">₹0.00</div>
+                        <div class="card-subtitle">Current wallet balance</div>
+                    </div>
+                </div>
+
+                <div class="summary-card available-card">
+                    <div class="card-icon">✅</div>
+                    <div class="card-content">
+                        <h3 class="card-title">Available Balance</h3>
+                        <div class="card-value" id="availableBalance">₹0.00</div>
+                        <div class="card-subtitle">Ready for trading</div>
+                    </div>
+                </div>
+
+                <div class="summary-card locked-card">
+                    <div class="card-icon">🔒</div>
+                    <div class="card-content">
+                        <h3 class="card-title">Locked Amount</h3>
+                        <div class="card-value" id="lockedAmount">₹0.00</div>
+                        <div class="card-subtitle">In pending orders</div>
+                    </div>
+                </div>
+
+                <div class="summary-card pl-card">
+                    <div class="card-icon">📊</div>
+                    <div class="card-content">
+                        <h3 class="card-title">Net P&L</h3>
+                        <div class="card-value" id="netPL">₹0.00</div>
+                        <div class="card-subtitle" id="returnPercentage">0.00%</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-section">
+                <button class="action-btn add-funds-btn" onclick="showAddFunds()">
+                    ➕ Add Funds
+                </button>
+                <button class="action-btn withdraw-btn" onclick="showWithdraw()">
+                    💸 Withdraw Funds
+                </button>
+            </div>
+
+            <!-- Transaction Summary -->
+            <div class="card transaction-summary-card">
+                <div class="card-header">
+                    <div>
+                        <h3 class="card-title">Transaction Summary</h3>
+                        <p class="card-subtitle">Overview of your transactions</p>
+                    </div>
+                </div>
+
+                <div class="summary-stats">
+                    <div class="stat-item">
+                        <div class="stat-label">Total Credits</div>
+                        <div class="stat-value credit" id="totalCredits">₹0.00</div>
+                        <div class="stat-count" id="creditCount">0 transactions</div>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat-item">
+                        <div class="stat-label">Total Debits</div>
+                        <div class="stat-value debit" id="totalDebits">₹0.00</div>
+                        <div class="stat-count" id="debitCount">0 transactions</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Transaction History -->
+            <div class="card">
+                <div class="card-header">
+                    <div>
+                        <h3 class="card-title">Transaction History</h3>
+                        <p class="card-subtitle">Recent wallet transactions</p>
+                    </div>
+                    <div class="filter-section">
+                        <select id="transactionTypeFilter" class="filter-select" onchange="filterTransactions()">
+                            <option value="">All Types</option>
+                            <option value="credit">Credits</option>
+                            <option value="debit">Debits</option>
+                        </select>
+                        <select id="transactionReasonFilter" class="filter-select" onchange="filterTransactions()">
+                            <option value="">All Reasons</option>
+                            <option value="initial_deposit">Initial Deposit</option>
+                            <option value="bonus">Bonus</option>
+                            <option value="stock_buy">Stock Buy</option>
+                            <option value="stock_sell">Stock Sell</option>
+                            <option value="charges">Charges</option>
+                            <option value="refund">Refund</option>
+                            <option value="order_cancelled">Order Cancelled</option>
+                            <option value="profit_realized">Profit Realized</option>
+                            <option value="loss_realized">Loss Realized</option>
+                            <option value="admin_credit">Admin Credit</option>
+                            <option value="admin_debit">Admin Debit</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="transaction-table-container">
+                    <table class="transaction-table">
+                        <thead>
+                            <tr>
+                                <th>Date & Time</th>
+                                <th>Type</th>
+                                <th>Reason</th>
+                                <th>Amount</th>
+                                <th>Balance Before</th>
+                                <th>Balance After</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactionTableBody">
+                            <tr>
+                                <td colspan="7" class="loading-row">
+                                    <div class="loading-spinner"></div>
+                                    <span>Loading transactions...</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div class="pagination" id="pagination" style="display: none;">
+                    <button class="pagination-btn" id="prevBtn" onclick="previousPage()">← Previous</button>
+                    <span class="pagination-info" id="pageInfo">Page 1 of 1</span>
+                    <button class="pagination-btn" id="nextBtn" onclick="nextPage()">Next →</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="wallet.js"></script>
+</body>
+
+</html>

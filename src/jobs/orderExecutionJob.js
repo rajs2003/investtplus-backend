@@ -9,7 +9,7 @@ const logger = require('../config/logger');
  */
 orderQueue.process('check-pending-orders', async (job) => {
   try {
-    logger.info('Starting pending orders check job', { jobId: job.id });
+    // logger.info('Starting pending orders check job', { jobId: job.id });
 
     // Get all pending limit and stop-loss orders
     const pendingOrders = await Order.find({
@@ -21,7 +21,7 @@ orderQueue.process('check-pending-orders', async (job) => {
       return { message: 'No pending orders to process', count: 0 };
     }
 
-    logger.info(`Found ${pendingOrders.length} pending orders to check`);
+    // logger.info(`Found ${pendingOrders.length} pending orders to check`);
 
     const results = {
       total: pendingOrders.length,
@@ -42,11 +42,11 @@ orderQueue.process('check-pending-orders', async (job) => {
           if (result) {
             results.executed++;
             executed = true;
-            logger.info(`Limit order ${order._id} executed successfully`, {
-              orderId: order._id,
-              symbol: order.symbol,
-              price: result.executedPrice,
-            });
+            // logger.info(`Limit order ${order._id} executed successfully`, {
+            //   orderId: order._id,
+            //   symbol: order.symbol,
+            //   price: result.executedPrice,
+            // });
           }
         }
 
@@ -56,11 +56,11 @@ orderQueue.process('check-pending-orders', async (job) => {
           if (result) {
             results.executed++;
             executed = true;
-            logger.info(`Stop-loss order ${order._id} executed successfully`, {
-              orderId: order._id,
-              symbol: order.symbol,
-              price: result.executedPrice,
-            });
+            // logger.info(`Stop-loss order ${order._id} executed successfully`, {
+            //   orderId: order._id,
+            //   symbol: order.symbol,
+            //   price: result.executedPrice,
+            // });
           }
         }
 
@@ -73,17 +73,17 @@ orderQueue.process('check-pending-orders', async (job) => {
           orderId: order._id,
           error: error.message,
         });
-        logger.error(`Failed to process order ${order._id}`, {
-          orderId: order._id,
-          error: error.message,
-        });
+        // logger.error(`Failed to process order ${order._id}`, {
+        //   orderId: order._id,
+        //   error: error.message,
+        // });
       }
     }
 
-    logger.info('Pending orders check job completed', {
-      jobId: job.id,
-      results,
-    });
+    // logger.info('Pending orders check job completed', {
+    //   jobId: job.id,
+    //   results,
+    // });
 
     return results;
   } catch (error) {
@@ -104,7 +104,7 @@ orderQueue.process('execute-order', async (job) => {
   const { orderId, orderVariant } = job.data;
 
   try {
-    logger.info('Executing order', { jobId: job.id, orderId, orderVariant });
+    // logger.info('Executing order', { jobId: job.id, orderId, orderVariant });
 
     let result;
 
@@ -119,11 +119,11 @@ orderQueue.process('execute-order', async (job) => {
     }
 
     if (result) {
-      logger.info('Order executed successfully', {
-        jobId: job.id,
-        orderId,
-        executedPrice: result.executedPrice,
-      });
+      // logger.info('Order executed successfully', {
+      //   jobId: job.id,
+      //   orderId,
+      //   executedPrice: result.executedPrice,
+      // });
       return { success: true, result };
     }
 
@@ -161,7 +161,7 @@ const startOrderMonitoring = async () => {
       },
     );
 
-    logger.info('Order monitoring job started - checking pending orders every 2 seconds');
+    // logger.info('Order monitoring job started - checking pending orders every 2 seconds');
     return true;
   } catch (error) {
     logger.error('Failed to start order monitoring', {

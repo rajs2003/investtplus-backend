@@ -1,9 +1,12 @@
+/* eslint-disable no-unused-vars */
 const httpStatus = require('http-status');
 const { Order } = require('../../../../models');
 const ApiError = require('../../../../utils/ApiError');
-const { walletService } = require('../walletServices/wallet.service');
-const chargesService = require('./charges.service');
-const marketTiming = require('../../../../utils/marketTiming');
+const fundManager = require('../walletServices/fundManager.service');
+const holdingService = require('../holdingServices/holding.service');
+const orderHelpers = require('./orderHelpers');
+const marketConfig = require('../../../../config/market.config');
+const { marketDataService } = require('../../mockMarket');
 
 /**
  * Place a new order
@@ -14,85 +17,130 @@ const marketTiming = require('../../../../utils/marketTiming');
 const placeOrder = async (userId, orderData) => {
   const { symbol, exchange, orderType, orderVariant, transactionType, quantity, price, triggerPrice } = orderData;
 
-  // Step 1: Validate market timing
-  const timingValidation = marketTiming.validateOrderTiming(orderType);
-  if (!timingValidation.allowed) {
-    throw new ApiError(httpStatus.BAD_REQUEST, timingValidation.reason);
+  // Step 1: Check market status
+  const marketStatus = marketDataService.getMarketStatus();
+  if (marketStatus.status === 'CLOSED') {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      `Market is closed. Reason: ${marketStatus.reason}. Orders can only be placed during market hours (${marketConfig.marketHours.regular.start} - ${marketConfig.marketHours.regular.end} IST).`,
+    );
   }
 
-  // Step 2: Validate quantity
-  if (!quantity || quantity <= 0) {
-    throw new ApiError(httpStatus.BAD_REQUEST, 'Quantity must be greater than 0');
-  }
-  if (quantity > 10000) {
-    throw new ApiError(httpStatus.BAD_REQUEST, 'Quantity cannot exceed 10,000 shares per order');
+  // Step 2: Validate order data against config
+  orderHelpers.validateOrderData(orderData);
+
+  // Step 3: Validate order type and product type from config
+  if (!marketConfig.orderSettings.allowedOrderTypes.includes(orderVariant.toUpperCase())) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      `Order variant '${orderVariant}' is not allowed. Allowed types: ${marketConfig.orderSettings.allowedOrderTypes.join(', ')}`,
+    );
   }
 
-  // Step 3: Validate price for limit orders
-  if (orderVariant === 'limit' && (!price || price <= 0)) {
-    throw new ApiError(httpStatus.BAD_REQUEST, 'Price is required for limit orders');
+  if (!marketConfig.orderSettings.allowedProductTypes.includes(orderType.toUpperCase())) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      `Order type '${orderType}' is not allowed. Allowed types: ${marketConfig.orderSettings.allowedProductTypes.join(', ')}`,
+    );
   }
 
-  // Step 4: Validate trigger price for SL/SLM orders
-  if ((orderVariant === 'sl' || orderVariant === 'slm') && (!triggerPrice || triggerPrice <= 0)) {
-    throw new ApiError(httpStatus.BAD_REQUEST, 'Trigger price is required for stop loss orders');
+  // Step 4: Validate quantity limits from config
+  if (quantity < marketConfig.orderSettings.minQuantity) {
+    throw new ApiError(httpStatus.BAD_REQUEST, `Minimum order quantity is ${marketConfig.orderSettings.minQuantity}`);
   }
 
-  // Step 5: For market orders, get current price (dummy price for now)
-  // TODO: Integrate with AngelOne API for real prices
-  let estimatedPrice = price || 100; // Default dummy price
+  if (quantity > marketConfig.orderSettings.maxQuantity) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      `Maximum order quantity is ${marketConfig.orderSettings.maxQuantity} per order`,
+    );
+  }
+
+  // Step 5: Get current market price from market data service
+  let currentPriceData;
+  try {
+    currentPriceData = marketDataService.getCurrentPrice(symbol.toUpperCase(), exchange || 'NSE');
+  } catch (error) {
+    throw new ApiError(httpStatus.BAD_REQUEST, `Unable to fetch price for ${symbol}. Please check symbol and exchange.`);
+  }
+
+  const marketPrice = currentPriceData.data.ltp;
+  const symbolToken = currentPriceData.data.symbolToken;
+  const companyName = currentPriceData.data.companyName;
+
+  // Step 6: Apply market order slippage if applicable
+  let estimatedPrice = orderHelpers.getEstimatedExecutionPrice(orderData, marketPrice);
   if (orderVariant === 'market') {
-    // In production, fetch from AngelOne/Redis cache
-    estimatedPrice = 100; // Placeholder
+    const slippage = marketConfig.orderSettings.marketOrderSlippage;
+    if (transactionType === 'buy') {
+      estimatedPrice = marketPrice * (1 + slippage); // Buy at slightly higher
+    } else {
+      estimatedPrice = marketPrice * (1 - slippage); // Sell at slightly lower
+    }
   }
 
-  // Step 6: Calculate charges
-  const charges = chargesService.calculateCharges({
-    orderType,
-    transactionType,
-    quantity,
-    price: estimatedPrice,
-  });
+  // Step 7: Calculate charges using config-based calculation
+  const charges = orderHelpers.calculateOrderCharges(
+    {
+      orderType,
+      transactionType,
+      quantity,
+      price: estimatedPrice,
+    },
+    exchange || 'NSE',
+  );
 
-  // Step 7: For BUY orders, check wallet balance and lock funds
+  // Step 8: Check margin requirements from config
+  const marginRequired = marketConfig.margins[orderType.toLowerCase()]?.required || 1.0;
+  const requiredFunds = charges.orderValue * marginRequired + charges.totalCharges;
+
+  // Step 9: Reserve funds for buy orders
+  let reservedFunds = null;
   if (transactionType === 'buy') {
-    // Get wallet
-    const wallet = await walletService.getWalletByUserId(userId);
-    if (!wallet) {
-      throw new ApiError(httpStatus.NOT_FOUND, 'Wallet not found');
-    }
-
-    // Check sufficient balance
-    if (!wallet.hasSufficientBalance(charges.netAmount)) {
+    try {
+      reservedFunds = await fundManager.reserveFunds(userId, requiredFunds);
+    } catch (error) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
-        `Insufficient balance. Required: ₹${charges.netAmount.toLocaleString('en-IN')}, Available: ₹${wallet.availableBalance.toLocaleString('en-IN')}`,
+        `Insufficient funds. Required: ₹${requiredFunds.toFixed(2)} (including ${(marginRequired * 100).toFixed(0)}% margin). ${error.message}`,
+      );
+    }
+  }
+
+  // Step 10: Validate holdings for sell orders
+  if (transactionType === 'sell') {
+    const holdingValidation = await holdingService.validateHoldingForSell(
+      userId,
+      symbol,
+      exchange || 'NSE',
+      quantity,
+      orderType,
+    );
+
+    if (!holdingValidation.hasHolding) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        holdingValidation.message || `Insufficient holdings for ${symbol.toUpperCase()}`,
       );
     }
 
-    // Lock funds
-    await walletService.lockFunds(userId, charges.netAmount, null); // orderId will be added after order creation
+    // Log successful validation
+    console.log(`✅ Sell validation passed: ${symbol} - Available: ${holdingValidation.available}, Selling: ${quantity}`);
   }
 
-  // Step 8: For SELL orders, validate holdings (TODO: will be implemented in Phase 3)
-  if (transactionType === 'sell') {
-    // TODO: Check if user has sufficient holdings
-    // For now, we'll allow sell orders for testing
-  }
-
-  // Step 9: Create order
+  // Step 11: Create order with all market data
   try {
     const order = await Order.create({
       userId,
-      symbol,
-      exchange,
-      tradingSymbol: `${symbol}-EQ`,
-      symbolToken: '', // TODO: Get from AngelOne
+      symbol: symbol.toUpperCase(),
+      exchange: exchange || 'NSE',
+      tradingSymbol: `${symbol.toUpperCase()}-EQ`,
+      symbolToken: symbolToken || '',
       orderType,
       orderVariant,
       transactionType,
       quantity,
-      price: orderVariant === 'limit' ? price : estimatedPrice,
+      price: orderVariant === 'limit' || orderVariant === 'sl' ? price : estimatedPrice,
       triggerPrice: triggerPrice || 0,
       status: 'pending',
       orderValue: charges.orderValue,
@@ -104,24 +152,25 @@ const placeOrder = async (userId, orderData) => {
       stampDuty: charges.stampDuty,
       totalCharges: charges.totalCharges,
       netAmount: charges.netAmount,
-      description: `${transactionType.toUpperCase()} ${quantity} shares of ${symbol} at ${orderVariant} price`,
+      description: orderHelpers.formatOrderDescription({
+        transactionType,
+        quantity,
+        symbol: symbol.toUpperCase(),
+        orderVariant,
+        price: price || estimatedPrice,
+        triggerPrice,
+        companyName,
+      }),
     });
-
-    // Step 10: Update locked amount with orderId
-    if (transactionType === 'buy') {
-      // The funds are already locked, just update the order reference
-      // In future, we might want to track orderId in wallet transactions
-    }
 
     return order;
   } catch (error) {
-    // Rollback: Unlock funds if order creation fails
-    if (transactionType === 'buy') {
+    // Rollback: Release reserved funds if order creation fails
+    if (transactionType === 'buy' && reservedFunds) {
       try {
-        await walletService.unlockFunds(userId, charges.netAmount, null);
-      } catch (unlockError) {
-        // Log error but don't throw
-        console.error('Failed to unlock funds during rollback:', unlockError);
+        await fundManager.releaseFunds(userId, requiredFunds, null, 'Order creation failed');
+      } catch (rollbackError) {
+        console.error('Failed to release funds during rollback:', rollbackError);
       }
     }
     throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Failed to place order: ${error.message}`);
@@ -152,9 +201,9 @@ const cancelOrder = async (orderId, userId, reason = 'User cancelled') => {
     throw new ApiError(httpStatus.BAD_REQUEST, `Cannot cancel order with status: ${order.status}`);
   }
 
-  // Step 4: Unlock funds for buy orders
+  // Step 4: Release reserved funds for buy orders
   if (order.transactionType === 'buy') {
-    await walletService.unlockFunds(userId, order.netAmount, orderId);
+    await fundManager.releaseFunds(userId, order.netAmount, orderId, reason);
   }
 
   // Step 5: Update order status

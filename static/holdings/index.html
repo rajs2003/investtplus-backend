@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Holdings - InvesttPlus</title>
+    <link rel="stylesheet" href="holdings.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="brand">📈 InvesttPlus</div>
+        <div class="user-menu">
+            <span class="user-name" id="userName">Welcome!</span>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+    </nav>
+
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+        <ul class="sidebar-menu">
+            <li><a href="../dashboard/index.html"><span class="icon">📊</span> Dashboard</a></li>
+            <li><a href="../wallet/index.html"><span class="icon">💰</span> Wallet</a></li>
+            <li><a href="../stocks/index.html"><span class="icon">📈</span> Stocks</a></li>
+            <li><a href="../portfolio/index.html"><span class="icon">📋</span> Portfolio</a></li>
+            <li><a href="#" class="active"><span class="icon">🏦</span> Holdings</a></li>
+            <li><a href="../profile/index.html"><span class="icon">👤</span> Profile</a></li>
+        </ul>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Holdings Header -->
+        <div class="dashboard-header">
+            <h1>Stock Holdings</h1>
+            <p>View and manage your current stock positions</p>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="stats-grid">
+            <div class="stat-card positive">
+                <div class="icon">📈</div>
+                <h3>Total Holdings</h3>
+                <div class="value" id="totalHoldings">Loading...</div>
+                <p>Number of different stocks</p>
+            </div>
+            <div class="stat-card neutral">
+                <div class="icon">💼</div>
+                <h3>Total Investment</h3>
+                <div class="value" id="totalInvestment">Loading...</div>
+                <p>Total amount invested</p>
+            </div>
+            <div class="stat-card neutral">
+                <div class="icon">💰</div>
+                <h3>Current Value</h3>
+                <div class="value" id="currentValue">Loading...</div>
+                <p>Current market value</p>
+            </div>
+            <div class="stat-card" id="pnlCard">
+                <div class="icon">📊</div>
+                <h3>Total P&L</h3>
+                <div class="value" id="totalPnL">Loading...</div>
+                <p id="pnlPercentage">Profit/Loss percentage</p>
+            </div>
+        </div>
+
+        <!-- Holdings Filters -->
+        <div class="content-card">
+            <div class="card-header">
+                <h2>Filter & Sort Holdings</h2>
+                <div class="header-actions">
+                    <select id="sortSelect" class="filter-select">
+                        <option value="symbol">Sort by Symbol</option>
+                        <option value="quantity">Sort by Quantity</option>
+                        <option value="value">Sort by Value</option>
+                        <option value="pnl">Sort by P&L</option>
+                        <option value="pnlPercentage">Sort by P&L %</option>
+                    </select>
+                    <input type="text" id="searchInput" placeholder="Search holdings..." class="search-input">
+                </div>
+            </div>
+        </div>
+
+        <!-- Holdings Table -->
+        <div class="content-card full-width">
+            <div class="card-header">
+                <h2>Current Holdings</h2>
+                <div class="header-actions">
+                    <button class="refresh-btn" id="refreshBtn">🔄 Refresh</button>
+                    <button class="export-btn" id="exportBtn">📤 Export</button>
+                </div>
+            </div>
+            <div class="card-content">
+                <div class="table-container">
+                    <table class="data-table" id="holdingsTable">
+                        <thead>
+                            <tr>
+                                <th>Stock</th>
+                                <th>Quantity</th>
+                                <th>Avg Price</th>
+                                <th>Current Price</th>
+                                <th>Investment</th>
+                                <th>Current Value</th>
+                                <th>P&L</th>
+                                <th>P&L %</th>
+                                <th>Day Change</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="holdingsTableBody">
+                            <tr>
+                                <td colspan="10" class="loading-row">
+                                    <div class="loading">Loading holdings data...</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Holdings Summary -->
+        <div class="content-grid">
+            <!-- Sector Allocation -->
+            <div class="content-card">
+                <div class="card-header">
+                    <h2>Sector Allocation</h2>
+                </div>
+                <div class="card-content">
+                    <div class="chart-container" id="sectorChart">
+                        <div class="loading">Loading sector data...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Performers -->
+            <div class="content-card">
+                <div class="card-header">
+                    <h2>Top Performers</h2>
+                </div>
+                <div class="card-content">
+                    <div class="chart-container" id="topPerformers">
+                        <div class="loading">Loading performance data...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Transactions -->
+        <div class="content-card full-width">
+            <div class="card-header">
+                <h2>Recent Transactions</h2>
+                <div class="header-actions">
+                    <select id="transactionFilter" class="filter-select">
+                        <option value="all">All Transactions</option>
+                        <option value="buy">Buy Orders</option>
+                        <option value="sell">Sell Orders</option>
+                    </select>
+                </div>
+            </div>
+            <div class="card-content">
+                <div class="table-container">
+                    <table class="data-table" id="transactionsTable">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Stock</th>
+                                <th>Type</th>
+                                <th>Quantity</th>
+                                <th>Price</th>
+                                <th>Total Amount</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactionsTableBody">
+                            <tr>
+                                <td colspan="7" class="loading-row">
+                                    <div class="loading">Loading transaction data...</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="holdings.js"></script>
+</body>
+</html>

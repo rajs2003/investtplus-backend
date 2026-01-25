@@ -1,9 +1,26 @@
 const httpStatus = require('http-status');
 const { Holding, Order, Trade } = require('../../../../models');
 const ApiError = require('../../../../utils/ApiError');
-const { orderExecutionService } = require('../orderServices/orderExecution.service');
+const { marketDataService } = require('../../mockMarket');
+const walletService = require('../walletServices/wallet.service');
 const logger = require('../../../../config/logger');
-const { getRedisClient } = require('../../../../utils/redisUtil');
+const { getRedisClient } = require('../../../../db/redis');
+
+/**
+ * Get current market price (using marketDataService)
+ * @param {string} symbol - Stock symbol
+ * @param {string} exchange - Exchange
+ * @returns {Promise<number>} Current price
+ */
+const getCurrentMarketPrice = async (symbol, exchange = 'NSE') => {
+  try {
+    const priceData = marketDataService.getCurrentPrice(symbol.toUpperCase(), exchange);
+    return priceData.data.ltp;
+  } catch (error) {
+    logger.warn(`Failed to fetch price for ${symbol}:`, error.message);
+    return 0;
+  }
+};
 
 /**
  * Create or update holding after buy order execution
@@ -14,6 +31,12 @@ const createOrUpdateHolding = async (order) => {
   try {
     if (order.transactionType !== 'buy' || order.status !== 'executed') {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Only executed buy orders can create holdings');
+    }
+
+    // Get wallet for the user
+    const wallet = await walletService.getWalletByUserId(order.userId);
+    if (!wallet) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Wallet not found for user');
     }
 
     // Calculate auto square-off time for intraday (3:20 PM same day)
@@ -54,7 +77,7 @@ const createOrUpdateHolding = async (order) => {
     // Create new holding
     const holding = await Holding.create({
       userId: order.userId,
-      walletId: order.walletId,
+      walletId: wallet._id,
       symbol: order.symbol,
       exchange: order.exchange || 'NSE',
       holdingType: order.orderType,
@@ -125,7 +148,7 @@ const getHoldings = async (userId, filter = {}) => {
       symbols.map(async (symbol) => {
         try {
           const exchange = holdings.find((h) => h.symbol === symbol)?.exchange || 'NSE';
-          priceMap[symbol] = orderExecutionService.getCurrentMarketPrice(symbol, exchange);
+          priceMap[symbol] = await getCurrentMarketPrice(symbol, exchange);
         } catch (error) {
           logger.warn(`Failed to get price for ${symbol}`, error);
           priceMap[symbol] = 0;
@@ -179,7 +202,7 @@ const getHoldingBySymbol = async (userId, symbol, holdingType) => {
   }
 
   // Update current price
-  const currentPrice = orderExecutionService.getCurrentMarketPrice(holding.symbol, holding.exchange);
+  const currentPrice = await getCurrentMarketPrice(holding.symbol, holding.exchange);
   holding.updateCurrentPrice(currentPrice);
   await holding.save();
 
@@ -242,10 +265,16 @@ const processSellOrder = async (order) => {
     // Use the first/oldest buy order for trade record (FIFO)
     const buyOrder = buyOrders[0];
 
+    // Get wallet for the user
+    const wallet = await walletService.getWalletByUserId(order.userId);
+    if (!wallet) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Wallet not found for user');
+    }
+
     // Create trade record
     const trade = await Trade.createFromOrders({
       userId: order.userId,
-      walletId: order.walletId,
+      walletId: wallet._id,
       holdingId: holding._id,
       symbol: order.symbol,
       exchange: order.exchange,
@@ -499,7 +528,7 @@ const batchUpdatePrices = async (holdings) => {
     // Fetch all prices in parallel
     const pricePromises = Array.from(symbolMap.entries()).map(async ([symbol, data]) => {
       try {
-        const price = orderExecutionService.getCurrentMarketPrice(symbol, data.exchange);
+        const price = await getCurrentMarketPrice(symbol, data.exchange);
         return { symbol, price };
       } catch (error) {
         logger.warn(`Failed to fetch price for ${symbol}`, error);
@@ -529,6 +558,62 @@ const batchUpdatePrices = async (holdings) => {
   }
 };
 
+/**
+ * Validate if user has sufficient holdings for sell order
+ * @param {ObjectId} userId - User ID
+ * @param {string} symbol - Stock symbol
+ * @param {string} exchange - Exchange
+ * @param {number} quantity - Quantity to sell
+ * @param {string} orderType - Order type (intraday/delivery)
+ * @returns {Promise<Object>} { hasHolding: boolean, available: number, holding: Holding }
+ */
+const validateHoldingForSell = async (userId, symbol, exchange, quantity, orderType) => {
+  try {
+    // Find the holding
+    const holding = await Holding.findOne({
+      userId,
+      symbol: symbol.toUpperCase(),
+      exchange: exchange || 'NSE',
+      holdingType: orderType,
+      quantity: { $gt: 0 }, // Only active holdings
+    });
+
+    if (!holding) {
+      return {
+        hasHolding: false,
+        available: 0,
+        holding: null,
+        message: `No ${orderType} holding found for ${symbol.toUpperCase()}`,
+      };
+    }
+
+    const availableQuantity = holding.quantity;
+
+    if (quantity > availableQuantity) {
+      return {
+        hasHolding: false,
+        available: availableQuantity,
+        holding,
+        message: `Insufficient holdings. You have ${availableQuantity} shares but trying to sell ${quantity} shares`,
+      };
+    }
+
+    return {
+      hasHolding: true,
+      available: availableQuantity,
+      holding,
+      message: 'Sufficient holdings available',
+    };
+  } catch (error) {
+    logger.error('Holding validation failed', {
+      userId,
+      symbol,
+      error: error.message,
+    });
+    throw error;
+  }
+};
+
 module.exports = {
   createOrUpdateHolding,
   getHoldings,
@@ -538,4 +623,5 @@ module.exports = {
   autoSquareOffIntraday,
   invalidateHoldingCache,
   batchUpdatePrices,
+  validateHoldingForSell,
 };
