@@ -27,13 +27,15 @@ const holdingSchema = mongoose.Schema(
     },
     holdingType: {
       type: String,
-      enum: ['intraday', 'delivery'],
+      enum: ['intraday', 'delivery', 'MIS'],
       required: true,
     },
     quantity: {
       type: Number,
       required: true,
-      min: 0,
+      // Allow negative quantities for short positions (intraday short selling)
+      // Positive = Long position (bought first)
+      // Negative = Short position (sold first, need to buy back)
     },
     averageBuyPrice: {
       type: Number,
@@ -108,12 +110,28 @@ holdingSchema.virtual('isLoss').get(function () {
 
 /**
  * Update current price and recalculate P&L
+ * Handles both long and short positions
  * @param {number} price - Current market price
  */
 holdingSchema.methods.updateCurrentPrice = function (price) {
   this.currentPrice = price;
-  this.currentValue = this.quantity * price;
-  this.unrealizedPL = this.currentValue - this.totalInvestment;
+
+  if (this.quantity > 0) {
+    // Long position: profit when price goes up
+    this.currentValue = this.quantity * price;
+    this.unrealizedPL = this.currentValue - this.totalInvestment;
+  } else if (this.quantity < 0) {
+    // Short position: profit when price goes down
+    // We sold at averageBuyPrice, need to buy back at currentPrice
+    const absQuantity = Math.abs(this.quantity);
+    this.currentValue = absQuantity * price;
+    this.unrealizedPL = (this.averageBuyPrice - price) * absQuantity;
+  } else {
+    // Zero quantity
+    this.currentValue = 0;
+    this.unrealizedPL = 0;
+  }
+
   this.unrealizedPLPercentage = this.totalInvestment > 0 ? (this.unrealizedPL / this.totalInvestment) * 100 : 0;
   return this;
 };
@@ -193,13 +211,14 @@ holdingSchema.methods.markAsSquaredOff = function (orderId) {
 
 /**
  * Get all active holdings for a user
+ * Includes both long positions (quantity > 0) and short positions (quantity < 0)
  * @param {ObjectId} userId - User ID
  * @param {string} holdingType - 'intraday' or 'delivery' (optional)
  */
 holdingSchema.statics.getActiveHoldings = async function (userId, holdingType = null) {
   const filter = {
     userId,
-    quantity: { $gt: 0 },
+    quantity: { $ne: 0 }, // Include both positive (long) and negative (short) positions
   };
 
   if (holdingType) {
@@ -211,12 +230,13 @@ holdingSchema.statics.getActiveHoldings = async function (userId, holdingType = 
 
 /**
  * Get holdings pending square-off (intraday positions)
+ * Includes both long and short positions
  */
 holdingSchema.statics.getPendingSquareOffs = async function () {
   const now = new Date();
   return this.find({
-    holdingType: 'intraday',
-    quantity: { $gt: 0 },
+    holdingType: { $in: ['intraday', 'MIS'] },
+    quantity: { $ne: 0 }, // Both long and short positions
     isSquaredOff: false,
     autoSquareOffTime: { $lte: now },
   });

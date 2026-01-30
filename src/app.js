@@ -14,7 +14,7 @@ const { authLimiter } = require('./middlewares/rateLimiter');
 const { v1Routes } = require('./routes');
 const { errorConverter, errorHandler } = require('./middlewares/error');
 const ApiError = require('./utils/ApiError');
-const { startOrderMonitoring } = require('./jobs/orderExecutionJob');
+const { startOrderMonitoring, scheduleAutoSquareOff } = require('./jobs/orderExecutionJob');
 const logger = require('./config/logger');
 const path = require('path');
 
@@ -22,12 +22,22 @@ const app = express();
 
 // Start background jobs for order execution
 if (config.env !== 'test') {
+  // Start limit/SL order monitoring
   startOrderMonitoring()
     .then(() => {
       logger.info('Order monitoring background job started successfully');
     })
     .catch((err) => {
       logger.error('Failed to start order monitoring job', { error: err.message });
+    });
+
+  // Schedule intraday auto square-off
+  scheduleAutoSquareOff()
+    .then(() => {
+      logger.info('Intraday auto square-off job scheduled successfully');
+    })
+    .catch((err) => {
+      logger.error('Failed to schedule auto square-off job', { error: err.message });
     });
 }
 
@@ -49,8 +59,6 @@ app.use(
         fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],
         frameSrc: ["'none'"],
         objectSrc: ["'none'"],
-        // scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.socket.io"],
-        // connectSrc: ["'self'", 'ws://localhost:3000', "https://cdn.socket.io"],
       },
     },
     crossOriginEmbedderPolicy: false,
@@ -79,6 +87,7 @@ app.use(
     exposedHeaders: ['Set-Cookie'],
   }),
 );
+
 //Header configs
 app.use(function (req, res, next) {
   res.header('Access-Control-Allow-Credentials', true);

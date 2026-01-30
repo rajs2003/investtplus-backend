@@ -393,27 +393,29 @@ function updateTransactionsTable() {
 
   tableBody.innerHTML = transactionsData
     .map((transaction) => {
-      const totalAmount = transaction.quantity * transaction.price;
+      const quantity = transaction.quantity ?? 0;
+      const price = transaction.price ?? 0;
+      const totalAmount = quantity * price;
 
       return `
             <tr>
                 <td>${formatDate(transaction.createdAt)}</td>
                 <td>
                     <div class="stock-info">
-                        <div class="stock-symbol">${transaction.symbol}</div>
+                        <div class="stock-symbol">${transaction.symbol || 'N/A'}</div>
                     </div>
                 </td>
                 <td>
-                    <span class="transaction-type ${transaction.type.toLowerCase()}">
-                        ${transaction.type}
+                    <span class="transaction-type ${(transaction.type || 'unknown').toLowerCase()}">
+                        ${transaction.type || 'N/A'}
                     </span>
                 </td>
-                <td>${transaction.quantity.toLocaleString()}</td>
-                <td>${formatCurrency(transaction.price)}</td>
+                <td>${quantity.toLocaleString()}</td>
+                <td>${formatCurrency(price)}</td>
                 <td>${formatCurrency(totalAmount)}</td>
                 <td>
-                    <span class="status-badge ${transaction.status.toLowerCase()}">
-                        ${transaction.status}
+                    <span class="status-badge ${(transaction.status || 'unknown').toLowerCase()}">
+                        ${transaction.status || 'N/A'}
                     </span>
                 </td>
             </tr>

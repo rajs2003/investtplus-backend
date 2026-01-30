@@ -1,6 +1,7 @@
 const httpStatus = require('http-status');
 const ApiError = require('../../../../utils/ApiError');
 const marketConfig = require('../../../../config/market.config');
+const chargesService = require('./charges.service');
 
 /**
  * Order Helper Utilities
@@ -8,7 +9,7 @@ const marketConfig = require('../../../../config/market.config');
  */
 
 /**
- * Calculate order charges
+ * Calculate order charges using the dedicated charges service
  * @param {Object} params - Order parameters
  * @param {string} params.orderType - intraday, delivery, or MIS
  * @param {string} params.transactionType - buy or sell
@@ -18,62 +19,14 @@ const marketConfig = require('../../../../config/market.config');
  * @returns {Object} Calculated charges breakdown
  */
 const calculateOrderCharges = ({ orderType, transactionType, quantity, price }, exchange = 'NSE') => {
-  const orderValue = quantity * price;
-  const exchangeKey = exchange.toLowerCase();
-
-  // Get config values
-  const brokerageConfig = marketConfig.charges.brokerage[orderType.toLowerCase()] || marketConfig.charges.brokerage.delivery;
-  const sttConfig = marketConfig.charges.stt[orderType.toLowerCase()] || marketConfig.charges.stt.delivery;
-  const exchangeChargeRate = marketConfig.charges.exchangeCharges[exchangeKey] || marketConfig.charges.exchangeCharges.nse;
-  const gstRate = marketConfig.charges.gst;
-  const sebiChargeRate = marketConfig.charges.sebiCharges;
-  const stampDutyRate = marketConfig.charges.stampDuty;
-
-  // Brokerage calculation
-  let brokerage = 0;
-  if (brokerageConfig.type === 'percentage') {
-    brokerage = Math.min(orderValue * brokerageConfig.value, brokerageConfig.max);
-  } else {
-    brokerage = brokerageConfig.value;
-  }
-
-  // STT (Securities Transaction Tax)
-  let stt = 0;
-  if (orderType.toLowerCase() === 'delivery') {
-    stt = transactionType === 'sell' ? orderValue * sttConfig.sell : orderValue * sttConfig.buy;
-  } else if (orderType.toLowerCase() === 'intraday' || orderType.toLowerCase() === 'mis') {
-    stt = orderValue * (transactionType === 'sell' ? sttConfig.sell : sttConfig.buy);
-  }
-
-  // Exchange transaction charges
-  const transactionCharges = orderValue * exchangeChargeRate;
-
-  // GST on brokerage and transaction charges
-  const gst = (brokerage + transactionCharges) * gstRate;
-
-  // SEBI charges
-  const sebiCharges = orderValue * sebiChargeRate;
-
-  // Stamp duty - only on buy side
-  const stampDuty = transactionType === 'buy' ? orderValue * stampDutyRate : 0;
-
-  // Total charges
-  const totalCharges = brokerage + stt + transactionCharges + gst + sebiCharges + stampDuty;
-
-  // Net amount (for buy: orderValue + charges, for sell: orderValue - charges)
-  const netAmount = transactionType === 'buy' ? orderValue + totalCharges : orderValue - totalCharges;
-
-  return {
-    orderValue: parseFloat(orderValue.toFixed(2)),
-    brokerage: parseFloat(brokerage.toFixed(2)),
-    stt: parseFloat(stt.toFixed(2)),
-    transactionCharges: parseFloat(transactionCharges.toFixed(2)),
-    gst: parseFloat(gst.toFixed(2)),
-    sebiCharges: parseFloat(sebiCharges.toFixed(2)),
-    stampDuty: parseFloat(stampDuty.toFixed(2)),
-    totalCharges: parseFloat(totalCharges.toFixed(2)),
-    netAmount: parseFloat(netAmount.toFixed(2)),
-  };
+  // Use the centralized charges service for all charge calculations
+  return chargesService.calculateCharges({
+    orderType,
+    transactionType,
+    quantity,
+    price,
+    exchange,
+  });
 };
 
 /**

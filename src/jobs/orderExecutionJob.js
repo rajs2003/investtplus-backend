@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 const orderQueue = require('../queues/orderQueue');
 const { orderExecutionService } = require('../services');
 const { Order } = require('../models');
@@ -6,22 +7,24 @@ const logger = require('../config/logger');
 /**
  * Process pending limit and stop-loss orders
  * Checks if price conditions are met and executes orders
+ * FIFO (First In First Out): Orders are processed in the order they were created
  */
 orderQueue.process('check-pending-orders', async (job) => {
   try {
-    // logger.info('Starting pending orders check job', { jobId: job.id });
+    logger.info('Starting pending orders check job', { jobId: job.id });
 
     // Get all pending limit and stop-loss orders
+    // IMPORTANT: .sort({ createdAt: 1 }) ensures FIFO - oldest orders first
     const pendingOrders = await Order.find({
       status: 'pending',
       orderVariant: { $in: ['limit', 'sl', 'slm'] },
-    }).sort({ createdAt: 1 });
+    }).sort({ createdAt: 1 }); // FIFO: Process orders in creation order
 
     if (pendingOrders.length === 0) {
       return { message: 'No pending orders to process', count: 0 };
     }
 
-    // logger.info(`Found ${pendingOrders.length} pending orders to check`);
+    logger.info(`Found ${pendingOrders.length} pending orders to check (FIFO order)`);
 
     const results = {
       total: pendingOrders.length,
@@ -31,7 +34,7 @@ orderQueue.process('check-pending-orders', async (job) => {
       errors: [],
     };
 
-    // Process each pending order
+    // Process each pending order in FIFO sequence
     for (const order of pendingOrders) {
       try {
         let executed = false;
@@ -42,11 +45,11 @@ orderQueue.process('check-pending-orders', async (job) => {
           if (result) {
             results.executed++;
             executed = true;
-            // logger.info(`Limit order ${order._id} executed successfully`, {
-            //   orderId: order._id,
-            //   symbol: order.symbol,
-            //   price: result.executedPrice,
-            // });
+            logger.info(`Limit order ${order._id} executed successfully`, {
+              orderId: order._id,
+              symbol: order.symbol,
+              price: result.executedPrice,
+            });
           }
         }
 
@@ -56,11 +59,11 @@ orderQueue.process('check-pending-orders', async (job) => {
           if (result) {
             results.executed++;
             executed = true;
-            // logger.info(`Stop-loss order ${order._id} executed successfully`, {
-            //   orderId: order._id,
-            //   symbol: order.symbol,
-            //   price: result.executedPrice,
-            // });
+            logger.info(`Stop-loss order ${order._id} executed successfully`, {
+              orderId: order._id,
+              symbol: order.symbol,
+              price: result.executedPrice,
+            });
           }
         }
 
@@ -73,24 +76,23 @@ orderQueue.process('check-pending-orders', async (job) => {
           orderId: order._id,
           error: error.message,
         });
-        // logger.error(`Failed to process order ${order._id}`, {
-        //   orderId: order._id,
-        //   error: error.message,
-        // });
+        logger.error(`Failed to process order ${order._id}`, {
+          orderId: order._id,
+          error: error.message,
+        });
       }
     }
 
-    // logger.info('Pending orders check job completed', {
-    //   jobId: job.id,
-    //   results,
-    // });
+    logger.info('Pending orders check job completed', {
+      jobId: job.id,
+      results,
+    });
 
     return results;
   } catch (error) {
     logger.error('Pending orders check job failed', {
       jobId: job.id,
       error: error.message,
-      stack: error.stack,
     });
     throw error;
   }
@@ -104,7 +106,7 @@ orderQueue.process('execute-order', async (job) => {
   const { orderId, orderVariant } = job.data;
 
   try {
-    // logger.info('Executing order', { jobId: job.id, orderId, orderVariant });
+    logger.info('Executing order', { jobId: job.id, orderId, orderVariant });
 
     let result;
 
@@ -119,11 +121,11 @@ orderQueue.process('execute-order', async (job) => {
     }
 
     if (result) {
-      // logger.info('Order executed successfully', {
-      //   jobId: job.id,
-      //   orderId,
-      //   executedPrice: result.executedPrice,
-      // });
+      logger.info('Order executed successfully', {
+        jobId: job.id,
+        orderId,
+        executedPrice: result.executedPrice,
+      });
       return { success: true, result };
     }
 
@@ -133,7 +135,6 @@ orderQueue.process('execute-order', async (job) => {
       jobId: job.id,
       orderId,
       error: error.message,
-      stack: error.stack,
     });
     throw error;
   }
@@ -161,12 +162,11 @@ const startOrderMonitoring = async () => {
       },
     );
 
-    // logger.info('Order monitoring job started - checking pending orders every 2 seconds');
+    logger.info('Order monitoring job started - checking pending orders every 2 seconds');
     return true;
   } catch (error) {
     logger.error('Failed to start order monitoring', {
       error: error.message,
-      stack: error.stack,
     });
     throw error;
   }
@@ -245,9 +245,182 @@ const getQueueStats = async () => {
   }
 };
 
+/**
+ * ========================================
+ * INTRADAY AUTO SQUARE-OFF JOB
+ * ========================================
+ * Automatically closes all intraday positions at market close
+ * This prevents users from carrying intraday positions overnight
+ */
+orderQueue.process('auto-square-off-intraday', async (job) => {
+  try {
+    logger.info('Starting intraday auto square-off job', { jobId: job.id });
+
+    const { Holding } = require('../models');
+    const fundManager = require('../services/v1/marketServices/walletServices/fundManager.service');
+    const marketConfig = require('../config/market.config');
+
+    // Find all open intraday positions
+    const intradayHoldings = await Holding.find({
+      holdingType: { $in: ['intraday', 'MIS'] },
+      quantity: { $ne: 0 }, // Either positive (long) or negative (short)
+    });
+
+    if (intradayHoldings.length === 0) {
+      logger.info('No intraday positions to square off');
+      return { message: 'No intraday positions found', count: 0 };
+    }
+
+    logger.info(`Found ${intradayHoldings.length} intraday positions to square off`);
+
+    const results = {
+      total: intradayHoldings.length,
+      squaredOff: 0,
+      failed: 0,
+      errors: [],
+    };
+
+    for (const holding of intradayHoldings) {
+      try {
+        // Get current market price
+        const currentPrice = await getCurrentMarketPrice(holding.symbol, holding.exchange);
+
+        const isLongPosition = holding.quantity > 0;
+        const absQuantity = Math.abs(holding.quantity);
+
+        // Create auto square-off order
+        const squareOffOrder = await Order.create({
+          userId: holding.userId,
+          symbol: holding.symbol,
+          exchange: holding.exchange,
+          tradingSymbol: `${holding.symbol}-EQ`,
+          orderType: 'intraday',
+          orderVariant: 'market',
+          transactionType: isLongPosition ? 'sell' : 'buy', // Reverse the position
+          quantity: absQuantity,
+          price: currentPrice,
+          status: 'pending',
+          description: `Auto square-off: ${isLongPosition ? 'SELL' : 'BUY'} ${absQuantity} ${holding.symbol} @ Market`,
+        });
+
+        // Execute the square-off order immediately
+        await orderExecutionService.executeMarketOrder(squareOffOrder._id);
+
+        // Calculate P&L
+        const buyPrice = isLongPosition ? holding.averageBuyPrice : currentPrice;
+        const sellPrice = isLongPosition ? currentPrice : holding.averageBuyPrice;
+        const pnl = (sellPrice - buyPrice) * absQuantity;
+
+        logger.info(`Intraday position squared off successfully`, {
+          holdingId: holding._id,
+          symbol: holding.symbol,
+          quantity: holding.quantity,
+          pnl: pnl.toFixed(2),
+        });
+
+        results.squaredOff++;
+      } catch (error) {
+        results.failed++;
+        results.errors.push({
+          holdingId: holding._id,
+          symbol: holding.symbol,
+          error: error.message,
+        });
+        logger.error(`Failed to square off intraday position ${holding._id}`, {
+          holdingId: holding._id,
+          symbol: holding.symbol,
+          error: error.message,
+        });
+      }
+    }
+
+    logger.info('Intraday auto square-off job completed', {
+      jobId: job.id,
+      results,
+    });
+
+    return results;
+  } catch (error) {
+    logger.error('Intraday auto square-off job failed', {
+      jobId: job.id,
+      error: error.message,
+    });
+    throw error;
+  }
+});
+
+/**
+ * Helper function to get current market price
+ */
+const getCurrentMarketPrice = async (symbol, exchange = 'NSE') => {
+  const { marketDataService } = require('../services/v1/mockMarket');
+  try {
+    const priceData = marketDataService.getCurrentPrice(symbol.toUpperCase(), exchange);
+    return priceData.data.ltp;
+  } catch (error) {
+    throw new Error(`Unable to fetch price for ${symbol}: ${error.message}`);
+  }
+};
+
+/**
+ * Schedule auto square-off job to run at market close time
+ * @returns {Promise<boolean>}
+ */
+const scheduleAutoSquareOff = async () => {
+  try {
+    const marketConfig = require('../config/market.config');
+    const autoSquareOffTime = marketConfig.autoSquareOff.intraday.time || '15:20';
+    const [hours, minutes] = autoSquareOffTime.split(':').map(Number);
+
+    // Schedule job to run daily at specified time
+    await orderQueue.add(
+      'auto-square-off-intraday',
+      {},
+      {
+        repeat: {
+          cron: `${minutes} ${hours} * * 1-5`, // Run Mon-Fri at specified time
+        },
+        jobId: 'auto-square-off-recurring',
+      },
+    );
+
+    logger.info(`Auto square-off scheduled for ${autoSquareOffTime} IST (Mon-Fri)`);
+    return true;
+  } catch (error) {
+    logger.error('Failed to schedule auto square-off', {
+      error: error.message,
+    });
+    throw error;
+  }
+};
+
+/**
+ * Stop auto square-off job
+ */
+const stopAutoSquareOff = async () => {
+  try {
+    const marketConfig = require('../config/market.config');
+    const autoSquareOffTime = marketConfig.autoSquareOff.intraday.time || '15:20';
+    const [hours, minutes] = autoSquareOffTime.split(':').map(Number);
+
+    await orderQueue.removeRepeatable('auto-square-off-intraday', {
+      cron: `${minutes} ${hours} * * 1-5`,
+    });
+    logger.info('Auto square-off job stopped');
+    return true;
+  } catch (error) {
+    logger.error('Failed to stop auto square-off', {
+      error: error.message,
+    });
+    throw error;
+  }
+};
+
 module.exports = {
   startOrderMonitoring,
   stopOrderMonitoring,
   queueOrderExecution,
   getQueueStats,
+  scheduleAutoSquareOff,
+  stopAutoSquareOff,
 };

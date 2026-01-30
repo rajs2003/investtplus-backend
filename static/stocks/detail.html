@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stock Details - InvestPlus</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="detail.css">
 </head>
 <body>
@@ -17,10 +16,10 @@
             </div>
         </div>
         <div class="nav-center">
-            <div class="market-status">
+            <!-- <div class="market-status">
                 <span class="status-dot" id="marketStatusDot"></span>
                 <span id="marketStatusText">Market Closed</span>
-            </div>
+            </div> -->
         </div>
         <div class="nav-right">
             <div class="connection-status">
@@ -30,7 +29,7 @@
             <div class="user-section">
                 <span id="userEmail">Loading...</span>
                 <button class="user-menu-btn" id="userMenuBtn">
-                    <i class="fas fa-user"></i>
+                    👤
                 </button>
             </div>
         </div>
@@ -44,43 +43,43 @@
                 <ul class="nav-list">
                     <li class="nav-item">
                         <a href="../dashboard/index.html" class="nav-link">
-                            <i class="nav-icon fas fa-chart-line"></i>
+                            <span class="nav-icon">📊</span>
                             <span class="nav-text">Dashboard</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a href="../wallet/index.html" class="nav-link">
-                            <i class="nav-icon fas fa-wallet"></i>
+                            <span class="nav-icon">💰</span>
                             <span class="nav-text">Wallet</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a href="./index.html" class="nav-link active">
-                            <i class="nav-icon fas fa-chart-bar"></i>
+                            <span class="nav-icon">📈</span>
                             <span class="nav-text">Stocks</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a href="../holdings/index.html" class="nav-link">
-                            <i class="nav-icon fas fa-briefcase"></i>
+                            <span class="nav-icon">🥇</span>
                             <span class="nav-text">Holdings</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a href="../portfolio/index.html" class="nav-link">
-                            <i class="nav-icon fas fa-pie-chart"></i>
+                            <span class="nav-icon">📋</span>
                             <span class="nav-text">Portfolio</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a href="../profile/index.html" class="nav-link">
-                            <i class="nav-icon fas fa-user-circle"></i>
+                            <span class="nav-icon">👤</span>
                             <span class="nav-text">Profile</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a href="../auth/login/index.html" class="nav-link" id="logoutBtn">
-                            <i class="nav-icon fas fa-sign-out-alt"></i>
+                            <span class="nav-icon">🚪</span>
                             <span class="nav-text">Logout</span>
                         </a>
                     </li>
@@ -102,7 +101,7 @@
                 <h2>Unable to Load Stock</h2>
                 <p id="errorMessage">Something went wrong</p>
                 <button class="btn-retry" onclick="window.location.reload()">
-                    <i class="fas fa-refresh"></i> Retry
+                    <span class="icon">🔄</span> Retry
                 </button>
             </div>
 
@@ -111,165 +110,184 @@
                 <!-- Back Button -->
                 <div class="back-navigation">
                     <a href="./index.html" class="btn-back">
-                        <i class="fas fa-arrow-left"></i> Back to Stocks
+                        <span class="icon">←</span> Back to Stocks
                     </a>
                 </div>
 
-                <!-- Stock Header -->
-                <div class="card stock-header-card">
-                    <div class="stock-header-top">
-                        <div class="stock-title">
-                            <h1 class="stock-symbol" id="stockSymbol">-</h1>
-                            <p class="stock-name" id="stockName">-</p>
-                            <span class="stock-sector badge" id="stockSector">-</span>
-                            <span class="stock-exchange badge" id="stockExchange">-</span>
-                        </div>
-                        <div class="stock-actions">
-                            <button class="btn-watchlist" id="addWatchlistBtn">
-                                <i class="far fa-heart"></i> Add to Watchlist
-                            </button>
-                        </div>
-                    </div>
-                    <div class="stock-header-bottom">
-                        <div class="price-section">
-                            <div class="current-price" id="currentPrice">₹0.00</div>
-                            <div class="price-change" id="priceChange">
-                                <span class="change-value">+0.00 (0.00%)</span>
+                <!-- Main Layout: Left (Graph + Details) | Right (Trading) -->
+                <div class="detail-layout">
+                    <!-- Left Side: Graph and Details -->
+                    <div class="left-section">
+                        <!-- Stock Header with Price -->
+                        <div class="card stock-header-card">
+                            <div class="stock-header-top">
+                                <div class="stock-title">
+                                    <h1 class="stock-symbol" id="stockSymbol">-</h1>
+                                    <p class="stock-name" id="stockName">-</p>
+                                    <span class="stock-sector badge" id="stockSector">-</span>
+                                    <span class="stock-exchange badge" id="stockExchange">-</span>
+                                </div>
+                                <div class="stock-actions">
+                                    <button class="btn-watchlist" id="addWatchlistBtn">
+                                        <i class="far fa-heart"></i> Add to Watchlist
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="stock-header-bottom">
+                                <div class="price-section">
+                                    <div class="current-price" id="currentPrice">₹0.00</div>
+                                    <div class="price-change" id="priceChange">
+                                        <span class="change-value">+0.00 (0.00%)</span>
+                                    </div>
+                                </div>
+                                <div class="stock-meta">
+                                    <div class="meta-item">
+                                        <span class="meta-label">Open</span>
+                                        <span class="meta-value" id="openPrice">₹0.00</span>
+                                    </div>
+                                    <div class="meta-item">
+                                        <span class="meta-label">High</span>
+                                        <span class="meta-value" id="highPrice">₹0.00</span>
+                                    </div>
+                                    <div class="meta-item">
+                                        <span class="meta-label">Low</span>
+                                        <span class="meta-value" id="lowPrice">₹0.00</span>
+                                    </div>
+                                    <div class="meta-item">
+                                        <span class="meta-label">Volume</span>
+                                        <span class="meta-value" id="volume">0</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div class="stock-meta">
-                            <div class="meta-item">
-                                <span class="meta-label">Open</span>
-                                <span class="meta-value" id="openPrice">₹0.00</span>
-                            </div>
-                            <div class="meta-item">
-                                <span class="meta-label">High</span>
-                                <span class="meta-value" id="highPrice">₹0.00</span>
-                            </div>
-                            <div class="meta-item">
-                                <span class="meta-label">Low</span>
-                                <span class="meta-value" id="lowPrice">₹0.00</span>
-                            </div>
-                            <div class="meta-item">
-                                <span class="meta-label">Volume</span>
-                                <span class="meta-value" id="volume">0</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
-                <!-- Trading Panel -->
-                <div class="trading-panel">
-                    <!-- Buy Panel -->
-                    <div class="card trade-card">
-                        <h3 class="trade-title buy-title">
-                            <i class="fas fa-arrow-up"></i> Buy
-                        </h3>
-                        <form id="buyForm" class="trade-form">
-                            <div class="form-group">
-                                <label for="buyQuantity">Quantity</label>
-                                <input type="number" id="buyQuantity" min="1" value="1" required>
+                        <!-- Chart Placeholder -->
+                        <div class="card chart-card">
+                            <h3 class="card-title">Price Chart</h3>
+                            <div class="chart-placeholder">
+                                <span class="icon large">📊</span>
+                                <p>Real-time chart coming soon...</p>
+                                <p class="chart-note">Chart visualization will be integrated here</p>
                             </div>
-                            <div class="form-group">
-                                <label for="buyOrderType">Order Type</label>
-                                <select id="buyOrderType" required>
-                                    <option value="intraday">Intraday</option>
-                                    <option value="delivery">Delivery</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Order Variant</label>
-                                <input type="text" value="Market" disabled>
-                            </div>
-                            <div class="order-summary">
-                                <div class="summary-row">
-                                    <span>Price:</span>
-                                    <span id="buyPrice">₹0.00</span>
+                        </div>
+
+                        <!-- Stock Information -->
+                        <div class="card info-card">
+                            <h3 class="card-title">Stock Information</h3>
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <span class="info-label">Market Cap</span>
+                                    <span class="info-value" id="marketCap">₹0.00 Cr</span>
                                 </div>
-                                <div class="summary-row">
-                                    <span>Quantity:</span>
-                                    <span id="buyQtyDisplay">1</span>
+                                <div class="info-item">
+                                    <span class="info-label">P/E Ratio</span>
+                                    <span class="info-value" id="peRatio">-</span>
                                 </div>
-                                <div class="summary-row total">
-                                    <span>Est. Total:</span>
-                                    <span id="buyTotal">₹0.00</span>
+                                <div class="info-item">
+                                    <span class="info-label">52W High</span>
+                                    <span class="info-value" id="fiftyTwoWeekHigh">₹0.00</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">52W Low</span>
+                                    <span class="info-value" id="fiftyTwoWeekLow">₹0.00</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Avg Volume</span>
+                                    <span class="info-value" id="avgVolume">0</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Sector</span>
+                                    <span class="info-value" id="sectorInfo">-</span>
                                 </div>
                             </div>
-                            <button type="submit" class="btn-trade btn-buy">
-                                <i class="fas fa-shopping-cart"></i> Place Buy Order
-                            </button>
-                        </form>
+                        </div>
                     </div>
 
-                    <!-- Sell Panel -->
-                    <div class="card trade-card">
-                        <h3 class="trade-title sell-title">
-                            <i class="fas fa-arrow-down"></i> Sell
-                        </h3>
-                        <form id="sellForm" class="trade-form">
-                            <div class="form-group">
-                                <label for="sellQuantity">Quantity</label>
-                                <input type="number" id="sellQuantity" min="1" value="1" required>
+                    <!-- Right Side: Trading Panel -->
+                    <div class="right-section">
+                        <div class="card trading-card">
+                            <!-- Buy/Sell Toggle -->
+                            <div class="trade-toggle">
+                                <button class="toggle-btn active" data-type="buy" id="buyToggleBtn">
+                                    <span class="icon">↑</span> BUY
+                                </button>
+                                <button class="toggle-btn" data-type="sell" id="sellToggleBtn">
+                                    <span class="icon">↓</span> SELL
+                                </button>
                             </div>
-                            <div class="form-group">
-                                <label for="sellOrderType">Order Type</label>
-                                <select id="sellOrderType" required>
-                                    <option value="intraday">Intraday</option>
-                                    <option value="delivery">Delivery</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Order Variant</label>
-                                <input type="text" value="Market" disabled>
-                            </div>
-                            <div class="order-summary">
-                                <div class="summary-row">
-                                    <span>Price:</span>
-                                    <span id="sellPrice">₹0.00</span>
-                                </div>
-                                <div class="summary-row">
-                                    <span>Quantity:</span>
-                                    <span id="sellQtyDisplay">1</span>
-                                </div>
-                                <div class="summary-row total">
-                                    <span>Est. Total:</span>
-                                    <span id="sellTotal">₹0.00</span>
-                                </div>
-                            </div>
-                            <button type="submit" class="btn-trade btn-sell">
-                                <i class="fas fa-hand-holding-usd"></i> Place Sell Order
-                            </button>
-                        </form>
-                    </div>
-                </div>
 
-                <!-- Stock Information -->
-                <div class="card info-card">
-                    <h3 class="card-title">Stock Information</h3>
-                    <div class="info-grid">
-                        <div class="info-item">
-                            <span class="info-label">Market Cap</span>
-                            <span class="info-value" id="marketCap">₹0.00 Cr</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">P/E Ratio</span>
-                            <span class="info-value" id="peRatio">-</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">52W High</span>
-                            <span class="info-value" id="fiftyTwoWeekHigh">₹0.00</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">52W Low</span>
-                            <span class="info-value" id="fiftyTwoWeekLow">₹0.00</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">Avg Volume</span>
-                            <span class="info-value" id="avgVolume">0</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">Sector</span>
-                            <span class="info-value" id="sectorInfo">-</span>
+                            <!-- Balance Display -->
+                            <div class="balance-display">
+                                <div class="balance-item" id="normalBalanceDisplay">
+                                    <span class="balance-label">Available Balance:</span>
+                                    <span class="balance-value" id="availableBalance">₹0.00</span>
+                                </div>
+                                <div class="balance-item" id="leverageBalanceDisplay" style="display: none;">
+                                    <span class="balance-label">Leverage Balance:</span>
+                                    <span class="balance-value" id="leverageBalance">₹0.00</span>
+                                </div>
+                            </div>
+
+                            <!-- Single Trading Form -->
+                            <form id="tradingForm" class="trade-form">
+                                <div class="form-group">
+                                    <label for="orderType">Order Type</label>
+                                    <select id="orderType" required>
+                                        <option value="intraday">Intraday (Margin Trading)</option>
+                                        <option value="delivery">Delivery (Full Payment)</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="orderVariant">Order Variant</label>
+                                    <select id="orderVariant" required>
+                                        <option value="market">Market Order</option>
+                                        <option value="limit">Limit Order</option>
+                                        <option value="sl">Stop Loss Order</option>
+                                    </select>
+                                </div>
+
+                                <!-- Price input for Limit and SL orders -->
+                                <div class="form-group" id="priceGroup" style="display: none;">
+                                    <label for="orderPrice">Limit Price (₹)</label>
+                                    <input type="number" id="orderPrice" min="0.01" step="0.01" placeholder="Enter limit price">
+                                </div>
+
+                                <!-- Trigger Price for SL orders -->
+                                <div class="form-group" id="triggerPriceGroup" style="display: none;">
+                                    <label for="triggerPrice">Trigger Price (₹)</label>
+                                    <input type="number" id="triggerPrice" min="0.01" step="0.01" placeholder="Enter trigger price">
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="quantity">Quantity</label>
+                                    <input type="number" id="quantity" min="1" value="1" required>
+                                </div>
+
+                                <!-- Order Summary -->
+                                <div class="order-summary">
+                                    <div class="summary-row">
+                                        <span>Current Price:</span>
+                                        <span id="summaryPrice">₹0.00</span>
+                                    </div>
+                                    <div class="summary-row">
+                                        <span>Quantity:</span>
+                                        <span id="summaryQty">1</span>
+                                    </div>
+                                    <div class="summary-row" id="marginRow" style="display: none;">
+                                        <span>Margin Required:</span>
+                                        <span id="marginAmount">₹0.00</span>
+                                    </div>
+                                    <div class="summary-row total">
+                                        <span>Est. Total:</span>
+                                        <span id="summaryTotal">₹0.00</span>
+                                    </div>
+                                </div>
+
+                                <button type="submit" class="btn-trade" id="tradeSubmitBtn">
+                                    <span class="icon">🛒</span> Place Buy Order
+                                </button>
+                            </form>
                         </div>
                     </div>
                 </div>

@@ -24,4 +24,21 @@ router.get(
   }),
 );
 
+router.get(
+  '/status',
+  catchAsync((req, res) => {
+    try {
+      // check thirdparty services status like database, redis, smtp and all others services like twilio and others
+      res.status(HTTPStatus.OK).json({
+        status: 'READY',
+        Timestamp: new Date().toISOString(),
+        Message: 'Server is ready to accept requests',
+      });
+    } catch (err) {
+      console.error('Readiness check error:', err);
+      throw new ApiError(HTTPStatus.SERVICE_UNAVAILABLE, 'Server is not ready');
+    }
+  }),
+);
+
 module.exports = router;

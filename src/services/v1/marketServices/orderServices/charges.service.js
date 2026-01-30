@@ -1,56 +1,53 @@
 /**
  * Charges Calculator Service
- * Calculates all trading charges as per real market standards
- *
- * Formulas based on:
- * - Brokerage: ₹20 or 0.03% (whichever is lower)
- * - STT: 0.025% (varies by order type)
- * - Transaction Charges: 0.00325% (NSE)
- * - GST: 18% on (brokerage + transaction charges)
- * - SEBI Charges: ₹10 per crore
- * - Stamp Duty: 0.015% on buy side
+ * Calculates all trading charges based on market configuration
+ * Uses values from market.config.js for accurate and configurable charge calculation
  */
+
+const marketConfig = require('../../../../config/market.config');
 
 /**
  * Calculate brokerage charges
  * @param {number} orderValue - Total order value (quantity × price)
+ * @param {string} orderType - Order type (delivery/intraday/mis)
  * @returns {number} Brokerage amount
  */
-const calculateBrokerage = (orderValue) => {
-  const percentageBased = orderValue * 0.0003; // 0.03%
-  const flatRate = 20;
-  return Math.min(percentageBased, flatRate);
+const calculateBrokerage = (orderValue, orderType = 'delivery') => {
+  const brokerageConfig = marketConfig.charges.brokerage[orderType.toLowerCase()] || marketConfig.charges.brokerage.delivery;
+
+  if (brokerageConfig.type === 'percentage') {
+    const percentageBased = orderValue * brokerageConfig.value;
+    return Math.min(percentageBased, brokerageConfig.max);
+  }
+  return brokerageConfig.value;
 };
 
 /**
  * Calculate STT (Securities Transaction Tax)
- * @param {string} orderType - 'intraday' or 'delivery'
+ * @param {string} orderType - 'intraday', 'delivery', or 'mis'
  * @param {string} transactionType - 'buy' or 'sell'
  * @param {number} orderValue - Total order value
  * @returns {number} STT amount
  */
 const calculateSTT = (orderType, transactionType, orderValue) => {
-  if (orderType === 'intraday') {
-    // Intraday: 0.025% on both buy and sell
-    return orderValue * 0.00025;
-  } else if (orderType === 'delivery') {
-    // Delivery: 0.1% only on sell side
-    if (transactionType === 'sell') {
-      return orderValue * 0.001;
-    }
-    return 0;
+  const sttConfig = marketConfig.charges.stt[orderType.toLowerCase()] || marketConfig.charges.stt.delivery;
+
+  if (transactionType === 'buy') {
+    return orderValue * sttConfig.buy;
   }
-  return 0;
+  return orderValue * sttConfig.sell;
 };
 
 /**
  * Calculate exchange transaction charges
  * @param {number} orderValue - Total order value
+ * @param {string} exchange - Exchange (NSE/BSE)
  * @returns {number} Transaction charges amount
  */
-const calculateTransactionCharges = (orderValue) => {
-  // NSE: 0.00325%
-  return orderValue * 0.0000325;
+const calculateTransactionCharges = (orderValue, exchange = 'NSE') => {
+  const exchangeKey = exchange.toLowerCase();
+  const exchangeChargeRate = marketConfig.charges.exchangeCharges[exchangeKey] || marketConfig.charges.exchangeCharges.nse;
+  return orderValue * exchangeChargeRate;
 };
 
 /**
@@ -60,8 +57,8 @@ const calculateTransactionCharges = (orderValue) => {
  * @returns {number} GST amount
  */
 const calculateGST = (brokerage, transactionCharges) => {
-  // 18% GST on (brokerage + transaction charges)
-  return (brokerage + transactionCharges) * 0.18;
+  const gstRate = marketConfig.charges.gst;
+  return (brokerage + transactionCharges) * gstRate;
 };
 
 /**
@@ -70,8 +67,8 @@ const calculateGST = (brokerage, transactionCharges) => {
  * @returns {number} SEBI charges amount
  */
 const calculateSEBICharges = (orderValue) => {
-  // ₹10 per crore (₹1,00,00,000)
-  return (orderValue / 10000000) * 10;
+  const sebiChargeRate = marketConfig.charges.sebiCharges;
+  return orderValue * sebiChargeRate;
 };
 
 /**
@@ -81,9 +78,9 @@ const calculateSEBICharges = (orderValue) => {
  * @returns {number} Stamp duty amount
  */
 const calculateStampDuty = (transactionType, orderValue) => {
-  // 0.015% only on buy side
+  const stampDutyRate = marketConfig.charges.stampDuty;
   if (transactionType === 'buy') {
-    return orderValue * 0.00015;
+    return orderValue * stampDutyRate;
   }
   return 0;
 };
@@ -91,13 +88,14 @@ const calculateStampDuty = (transactionType, orderValue) => {
 /**
  * Calculate all charges for an order
  * @param {Object} params - Order parameters
- * @param {string} params.orderType - 'intraday' or 'delivery'
+ * @param {string} params.orderType - 'intraday', 'delivery', or 'mis'
  * @param {string} params.transactionType - 'buy' or 'sell'
  * @param {number} params.quantity - Number of shares
  * @param {number} params.price - Price per share
+ * @param {string} params.exchange - Exchange (NSE/BSE) - optional, defaults to NSE
  * @returns {Object} Breakdown of all charges
  */
-const calculateCharges = ({ orderType, transactionType, quantity, price }) => {
+const calculateCharges = ({ orderType, transactionType, quantity, price, exchange = 'NSE' }) => {
   // Validate inputs
   if (!orderType || !transactionType || !quantity || !price) {
     throw new Error('Missing required parameters for charges calculation');
@@ -110,10 +108,10 @@ const calculateCharges = ({ orderType, transactionType, quantity, price }) => {
   // Calculate order value
   const orderValue = quantity * price;
 
-  // Calculate individual charges
-  const brokerage = calculateBrokerage(orderValue);
+  // Calculate individual charges using config-based functions
+  const brokerage = calculateBrokerage(orderValue, orderType);
   const stt = calculateSTT(orderType, transactionType, orderValue);
-  const transactionCharges = calculateTransactionCharges(orderValue);
+  const transactionCharges = calculateTransactionCharges(orderValue, exchange);
   const gst = calculateGST(brokerage, transactionCharges);
   const sebiCharges = calculateSEBICharges(orderValue);
   const stampDuty = calculateStampDuty(transactionType, orderValue);
@@ -122,7 +120,7 @@ const calculateCharges = ({ orderType, transactionType, quantity, price }) => {
   const totalCharges = brokerage + stt + transactionCharges + gst + sebiCharges + stampDuty;
 
   // Calculate net amount
-  const netAmount = orderValue + totalCharges;
+  const netAmount = transactionType === 'buy' ? orderValue + totalCharges : orderValue - totalCharges;
 
   // Round all values to 2 decimal places
   const roundToTwo = (num) => Math.round(num * 100) / 100;

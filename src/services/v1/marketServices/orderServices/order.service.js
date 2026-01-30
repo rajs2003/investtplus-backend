@@ -9,6 +9,40 @@ const marketConfig = require('../../../../config/market.config');
 const { marketDataService } = require('../../mockMarket');
 
 /**
+ * ========================================
+ * ORDER PLACEMENT SERVICE
+ * ========================================
+ *
+ * Handles order placement with proper validations
+ *
+ * KEY FEATURES:
+ *
+ * 1. INTRADAY SHORT SELLING SUPPORT
+ *    - Users can sell stocks without holdings in intraday
+ *    - Margin/leverage balance is checked and locked
+ *    - Both BUY and SELL require margin for intraday orders
+ *
+ * 2. DELIVERY ORDER TRADITIONAL FLOW
+ *    - BUY requires 100% funds
+ *    - SELL requires holdings validation
+ *
+ * 3. VALIDATION FLOW:
+ *    - Market status check
+ *    - Order data validation
+ *    - Quantity limits check
+ *    - Price validation
+ *    - Margin/fund requirements check
+ *    - Holdings check (for delivery sell only)
+ *
+ * 4. FUND MANAGEMENT:
+ *    - INTRADAY (BUY/SELL): Margin locked (e.g., 20%)
+ *    - DELIVERY BUY: Full amount locked (100%)
+ *    - DELIVERY SELL: No funds locked (holdings validated)
+ *
+ * ========================================
+ */
+
+/**
  * Place a new order
  * @param {ObjectId} userId - User ID
  * @param {Object} orderData - Order details
@@ -16,6 +50,9 @@ const { marketDataService } = require('../../mockMarket');
  */
 const placeOrder = async (userId, orderData) => {
   const { symbol, exchange, orderType, orderVariant, transactionType, quantity, price, triggerPrice } = orderData;
+
+  // Normalize orderType (convert MIS to intraday)
+  const normalizedOrderType = orderType === 'MIS' || orderType === 'mis' ? 'intraday' : orderType.toLowerCase();
 
   // Step 1: Check market status
   const marketStatus = marketDataService.getMarketStatus();
@@ -27,7 +64,7 @@ const placeOrder = async (userId, orderData) => {
   }
 
   // Step 2: Validate order data against config
-  orderHelpers.validateOrderData(orderData);
+  orderHelpers.validateOrderData({ ...orderData, orderType: normalizedOrderType });
 
   // Step 3: Validate order type and product type from config
   if (!marketConfig.orderSettings.allowedOrderTypes.includes(orderVariant.toUpperCase())) {
@@ -37,10 +74,10 @@ const placeOrder = async (userId, orderData) => {
     );
   }
 
-  if (!marketConfig.orderSettings.allowedProductTypes.includes(orderType.toUpperCase())) {
+  if (!marketConfig.orderSettings.allowedProductTypes.includes(normalizedOrderType.toUpperCase())) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      `Order type '${orderType}' is not allowed. Allowed types: ${marketConfig.orderSettings.allowedProductTypes.join(', ')}`,
+      `Order type '${normalizedOrderType}' is not allowed. Allowed types: ${marketConfig.orderSettings.allowedProductTypes.join(', ')}`,
     );
   }
 
@@ -82,7 +119,7 @@ const placeOrder = async (userId, orderData) => {
   // Step 7: Calculate charges using config-based calculation
   const charges = orderHelpers.calculateOrderCharges(
     {
-      orderType,
+      orderType: normalizedOrderType,
       transactionType,
       quantity,
       price: estimatedPrice,
@@ -91,41 +128,63 @@ const placeOrder = async (userId, orderData) => {
   );
 
   // Step 8: Check margin requirements from config
-  const marginRequired = marketConfig.margins[orderType.toLowerCase()]?.required || 1.0;
+  const marginRequired = marketConfig.margins[normalizedOrderType]?.required || 1.0;
   const requiredFunds = charges.orderValue * marginRequired + charges.totalCharges;
 
-  // Step 9: Reserve funds for buy orders
+  // Step 9: Fund validation and reservation based on order type and transaction type
   let reservedFunds = null;
-  if (transactionType === 'buy') {
+
+  // For INTRADAY orders - support short selling (both buy and sell check leverage balance)
+  if (normalizedOrderType === 'intraday') {
+    // INTRADAY: Both BUY and SELL require margin/leverage balance check
+    // This allows short selling - user can sell first without holdings
     try {
       reservedFunds = await fundManager.reserveFunds(userId, requiredFunds);
+      console.log(
+        `✅ Intraday ${transactionType.toUpperCase()} order - Margin reserved: ₹${requiredFunds.toFixed(2)} (${(marginRequired * 100).toFixed(0)}% of ₹${charges.orderValue.toFixed(2)})`,
+      );
     } catch (error) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
-        `Insufficient funds. Required: ₹${requiredFunds.toFixed(2)} (including ${(marginRequired * 100).toFixed(0)}% margin). ${error.message}`,
+        `Insufficient funds for intraday ${transactionType} order. Required: ₹${requiredFunds.toFixed(2)} (including ${(marginRequired * 100).toFixed(0)}% margin). ${error.message}`,
       );
     }
   }
+  // For DELIVERY orders - traditional flow
+  else if (normalizedOrderType === 'delivery') {
+    if (transactionType === 'buy') {
+      // DELIVERY BUY: Reserve full amount (100% margin)
+      try {
+        reservedFunds = await fundManager.reserveFunds(userId, requiredFunds);
+        console.log(`✅ Delivery BUY order - Funds reserved: ₹${requiredFunds.toFixed(2)}`);
+      } catch (error) {
+        throw new ApiError(
+          httpStatus.BAD_REQUEST,
+          `Insufficient funds for delivery buy order. Required: ₹${requiredFunds.toFixed(2)}. ${error.message}`,
+        );
+      }
+    } else {
+      // DELIVERY SELL: Must have holdings, no funds reservation needed
+      const holdingValidation = await holdingService.validateHoldingForSell(
+        userId,
+        symbol,
+        exchange || 'NSE',
+        quantity,
+        orderType,
+      );
 
-  // Step 10: Validate holdings for sell orders
-  if (transactionType === 'sell') {
-    const holdingValidation = await holdingService.validateHoldingForSell(
-      userId,
-      symbol,
-      exchange || 'NSE',
-      quantity,
-      orderType,
-    );
+      if (!holdingValidation.hasHolding) {
+        throw new ApiError(
+          httpStatus.BAD_REQUEST,
+          holdingValidation.message ||
+            `Insufficient holdings for ${symbol.toUpperCase()}. Cannot sell delivery without holdings.`,
+        );
+      }
 
-    if (!holdingValidation.hasHolding) {
-      throw new ApiError(
-        httpStatus.BAD_REQUEST,
-        holdingValidation.message || `Insufficient holdings for ${symbol.toUpperCase()}`,
+      console.log(
+        `✅ Delivery SELL validation passed: ${symbol} - Available: ${holdingValidation.available}, Selling: ${quantity}`,
       );
     }
-
-    // Log successful validation
-    console.log(`✅ Sell validation passed: ${symbol} - Available: ${holdingValidation.available}, Selling: ${quantity}`);
   }
 
   // Step 11: Create order with all market data
@@ -136,7 +195,7 @@ const placeOrder = async (userId, orderData) => {
       exchange: exchange || 'NSE',
       tradingSymbol: `${symbol.toUpperCase()}-EQ`,
       symbolToken: symbolToken || '',
-      orderType,
+      orderType: normalizedOrderType,
       orderVariant,
       transactionType,
       quantity,
@@ -163,12 +222,29 @@ const placeOrder = async (userId, orderData) => {
       }),
     });
 
+    console.log(
+      `✅ Order placed successfully: ${normalizedOrderType.toUpperCase()} ${transactionType.toUpperCase()} ${quantity} ${symbol} @ ₹${estimatedPrice.toFixed(2)}`,
+    );
+
+    // Step 12: Queue limit/SL orders for background processing
+    if (orderVariant === 'limit' || orderVariant === 'sl' || orderVariant === 'slm') {
+      try {
+        const { queueOrderExecution } = require('../../../jobs/orderExecutionJob');
+        await queueOrderExecution(order._id, orderVariant);
+        console.log(`📋 Order ${order._id} queued for background processing (${orderVariant})`);
+      } catch (queueError) {
+        // Log error but don't fail order placement
+        console.error('Failed to queue order for processing:', queueError);
+      }
+    }
+
     return order;
   } catch (error) {
     // Rollback: Release reserved funds if order creation fails
-    if (transactionType === 'buy' && reservedFunds) {
+    if (reservedFunds) {
       try {
         await fundManager.releaseFunds(userId, requiredFunds, null, 'Order creation failed');
+        console.log(`🔄 Rollback: Released ₹${requiredFunds.toFixed(2)} due to order creation failure`);
       } catch (rollbackError) {
         console.error('Failed to release funds during rollback:', rollbackError);
       }

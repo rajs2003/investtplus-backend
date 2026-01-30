@@ -305,9 +305,11 @@ function updateHoldingsTable() {
                 <td class="${getColorClass(pnl)}">${formatCurrency(Math.abs(pnl))}</td>
                 <td class="${getColorClass(pnl)}">${formatPercentage(pnlPercentage)}</td>
                 <td>
-                    <button class="action-btn" onclick="viewHoldingDetails('${holding.symbol}')">
+                <a href="../stocks/detail.html?symbol=${encodeURIComponent(holding.symbol)}&exchange=NSE" target="_blank" class="action-btn">
+                    <button class="action-btn">
                         View
                     </button>
+                    </a>
                 </td>
             </tr>
         `;

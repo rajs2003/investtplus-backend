@@ -680,7 +680,6 @@ function loadSocketIO() {
 
   const script = document.createElement('script');
   script.src = 'https://cdn.socket.io/4.7.2/socket.io.min.js';
-  script.integrity = 'sha384-9Z1f7PcJfVKJ6b+YmV0A5XJ9g4K+8FG3K+XJ9KbPQ0K+5vI6zIvSzTmV8Wh3OtVb';
   script.crossOrigin = 'anonymous';
 
   script.onload = () => {

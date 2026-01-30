@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 const httpStatus = require('http-status');
 const { Holding, Order, Trade } = require('../../../../models');
 const ApiError = require('../../../../utils/ApiError');
@@ -24,6 +25,7 @@ const getCurrentMarketPrice = async (symbol, exchange = 'NSE') => {
 
 /**
  * Create or update holding after buy order execution
+ * Handles both long positions and covering short positions
  * @param {Object} order - Executed buy order
  * @returns {Promise<Holding>}
  */
@@ -41,7 +43,7 @@ const createOrUpdateHolding = async (order) => {
 
     // Calculate auto square-off time for intraday (3:20 PM same day)
     let autoSquareOffTime = null;
-    if (order.orderType === 'intraday') {
+    if (order.orderType === 'intraday' || order.orderType === 'MIS') {
       autoSquareOffTime = new Date();
       autoSquareOffTime.setHours(15, 20, 0, 0); // 3:20 PM
 
@@ -51,16 +53,49 @@ const createOrUpdateHolding = async (order) => {
       }
     }
 
-    // Check if holding already exists
+    // Check if holding already exists (including negative quantities for short positions)
     const existingHolding = await Holding.findOne({
       userId: order.userId,
       symbol: order.symbol,
       holdingType: order.orderType,
-      quantity: { $gt: 0 },
     });
 
     if (existingHolding) {
-      // Add to existing holding (averaging)
+      // If existing quantity is negative (short position), this buy order is covering the short
+      if (existingHolding.quantity < 0) {
+        const coverQuantity = Math.min(order.executedQuantity, Math.abs(existingHolding.quantity));
+        const newQuantity = existingHolding.quantity + order.executedQuantity;
+
+        if (newQuantity === 0) {
+          // Short position fully covered - mark as squared off
+          existingHolding.quantity = 0;
+          existingHolding.isSquaredOff = true;
+          existingHolding.squareOffOrderId = order._id;
+        } else if (newQuantity > 0) {
+          // Short covered and now long - recalculate average price for remaining long position
+          existingHolding.quantity = newQuantity;
+          existingHolding.averageBuyPrice = order.executedPrice;
+          existingHolding.totalInvestment = newQuantity * order.executedPrice;
+        } else {
+          // Still in short position, just reduced
+          existingHolding.quantity = newQuantity;
+          // Average price remains the same for short positions
+        }
+
+        existingHolding.orderIds.push(order._id);
+        await existingHolding.save();
+
+        logger.info('Short position covered/reduced', {
+          holdingId: existingHolding._id,
+          symbol: order.symbol,
+          newQuantity: existingHolding.quantity,
+          status: newQuantity === 0 ? 'fully covered' : newQuantity > 0 ? 'now long' : 'still short',
+        });
+
+        return existingHolding;
+      }
+
+      // Add to existing long position (averaging)
       existingHolding.addQuantity(order.executedQuantity, order.executedPrice, order._id);
       await existingHolding.save();
 
@@ -184,6 +219,7 @@ const getHoldings = async (userId, filter = {}) => {
 
 /**
  * Get specific holding by symbol
+ * Includes both long and short positions
  * @param {ObjectId} userId
  * @param {string} symbol
  * @param {string} holdingType
@@ -194,7 +230,7 @@ const getHoldingBySymbol = async (userId, symbol, holdingType) => {
     userId,
     symbol: symbol.toUpperCase(),
     holdingType,
-    quantity: { $gt: 0 },
+    quantity: { $ne: 0 }, // Include both positive and negative
   });
 
   if (!holding) {
@@ -210,7 +246,7 @@ const getHoldingBySymbol = async (userId, symbol, holdingType) => {
 };
 
 /**
- * Process sell order and update/close holding
+ * Process sell order - handles both closing long positions and opening short positions
  * @param {Object} order - Executed sell order
  * @returns {Promise<Object>} - { holding, trade }
  */
@@ -220,85 +256,107 @@ const processSellOrder = async (order) => {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Only executed sell orders can be processed');
     }
 
-    // Find the holding
-    const holding = await Holding.findOne({
-      userId: order.userId,
-      symbol: order.symbol,
-      holdingType: order.orderType,
-      quantity: { $gt: 0 },
-    });
-
-    if (!holding) {
-      throw new ApiError(httpStatus.NOT_FOUND, `No ${order.orderType} holding found for ${order.symbol}`);
-    }
-
-    if (order.executedQuantity > holding.quantity) {
-      throw new ApiError(
-        httpStatus.BAD_REQUEST,
-        `Cannot sell ${order.executedQuantity} shares. Only ${holding.quantity} shares available`,
-      );
-    }
-
-    // Reduce quantity and calculate realized P&L
-    const plDetails = holding.reduceQuantity(order.executedQuantity, order.executedPrice);
-    await holding.save();
-
-    logger.info('Holding updated after sell', {
-      holdingId: holding._id,
-      symbol: order.symbol,
-      soldQuantity: order.executedQuantity,
-      remainingQuantity: holding.quantity,
-      realizedPL: plDetails.realizedPL,
-    });
-
-    // Find matching buy order(s) for trade record
-    const buyOrders = await Order.find({
-      _id: { $in: holding.orderIds },
-      transactionType: 'buy',
-      status: 'executed',
-    }).sort({ executedAt: 1 });
-
-    if (buyOrders.length === 0) {
-      throw new ApiError(httpStatus.NOT_FOUND, 'No matching buy order found for trade record');
-    }
-
-    // Use the first/oldest buy order for trade record (FIFO)
-    const buyOrder = buyOrders[0];
-
     // Get wallet for the user
     const wallet = await walletService.getWalletByUserId(order.userId);
     if (!wallet) {
       throw new ApiError(httpStatus.NOT_FOUND, 'Wallet not found for user');
     }
 
-    // Create trade record
-    const trade = await Trade.createFromOrders({
+    // Find existing holding (could be long position or already short)
+    const holding = await Holding.findOne({
       userId: order.userId,
-      walletId: wallet._id,
-      holdingId: holding._id,
       symbol: order.symbol,
-      exchange: order.exchange,
-      tradeType: order.orderType,
-      buyOrder,
-      sellOrder: order,
-      quantity: order.executedQuantity,
-      isAutoSquareOff: false,
+      holdingType: order.orderType,
     });
 
-    logger.info('Trade record created', {
-      tradeId: trade._id,
-      symbol: order.symbol,
-      netPL: trade.netPL,
-      plPercentage: trade.plPercentage,
-    });
+    // CASE 1: Closing a long position (delivery sell or intraday sell of existing long)
+    if (holding && holding.quantity > 0) {
+      if (order.executedQuantity > holding.quantity) {
+        throw new ApiError(
+          httpStatus.BAD_REQUEST,
+          `Cannot sell ${order.executedQuantity} shares. Only ${holding.quantity} shares available`,
+        );
+      }
 
-    // Invalidate cache after sell
-    await invalidateHoldingCache(order.userId);
+      // Reduce quantity and calculate realized P&L
+      const plDetails = holding.reduceQuantity(order.executedQuantity, order.executedPrice);
+      await holding.save();
 
-    return { holding, trade };
+      logger.info('Long position closed/reduced', {
+        holdingId: holding._id,
+        symbol: order.symbol,
+        soldQuantity: order.executedQuantity,
+        remainingQuantity: holding.quantity,
+        realizedPL: plDetails.realizedPL,
+      });
+
+      await invalidateHoldingCache(order.userId);
+      return { holding, plDetails };
+    }
+
+    // CASE 2: Intraday short selling (sell without holdings)
+    if (order.orderType === 'intraday' || order.orderType === 'MIS') {
+      // Calculate auto square-off time
+      let autoSquareOffTime = new Date();
+      autoSquareOffTime.setHours(15, 20, 0, 0); // 3:20 PM
+      if (new Date() > autoSquareOffTime) {
+        autoSquareOffTime.setDate(autoSquareOffTime.getDate() + 1);
+      }
+
+      if (holding && holding.quantity < 0) {
+        // Already in short position, increase short position
+        holding.quantity -= order.executedQuantity; // Make more negative
+        holding.orderIds.push(order._id);
+        await holding.save();
+
+        logger.info('Short position increased', {
+          holdingId: holding._id,
+          symbol: order.symbol,
+          shortQuantity: Math.abs(holding.quantity),
+        });
+      } else {
+        // Create new short position (negative quantity)
+        const shortHolding = await Holding.create({
+          userId: order.userId,
+          walletId: wallet._id,
+          symbol: order.symbol,
+          exchange: order.exchange || 'NSE',
+          holdingType: order.orderType,
+          quantity: -order.executedQuantity, // NEGATIVE for short position
+          averageBuyPrice: order.executedPrice, // This is actually the sell price
+          totalInvestment: order.executedQuantity * order.executedPrice,
+          currentPrice: order.executedPrice,
+          currentValue: order.executedQuantity * order.executedPrice,
+          unrealizedPL: 0,
+          unrealizedPLPercentage: 0,
+          orderIds: [order._id],
+          autoSquareOffTime,
+        });
+
+        logger.info('Short position created', {
+          holdingId: shortHolding._id,
+          symbol: order.symbol,
+          shortQuantity: order.executedQuantity,
+          sellPrice: order.executedPrice,
+        });
+
+        await invalidateHoldingCache(order.userId);
+        return { holding: shortHolding };
+      }
+
+      await invalidateHoldingCache(order.userId);
+      return { holding };
+    }
+
+    // CASE 3: Delivery sell without holdings - not allowed
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      `No ${order.orderType} holding found for ${order.symbol}. Cannot sell shares you don't own in delivery mode.`,
+    );
   } catch (error) {
     logger.error('Failed to process sell order', {
       orderId: order._id,
+      symbol: order.symbol,
       error: error.message,
     });
     throw error;

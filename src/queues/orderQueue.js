@@ -5,6 +5,10 @@ const logger = require('../config/logger');
 /**
  * Order Execution Queue
  * Processes pending limit and stop-loss orders in background
+ * FIFO (First In First Out) Implementation:
+ * Orders are processed in the order they were created (createdAt timestamp)
+ * Bull queue ensures job processing order is maintained
+ * Background job sorts orders by createdAt before processing
  */
 const orderQueue = new Queue('order-execution', {
   redis: {
@@ -21,7 +25,6 @@ const orderQueue = new Queue('order-execution', {
     removeOnComplete: 100, // Keep last 100 completed jobs
     removeOnFail: 200, // Keep last 200 failed jobs
   },
-  // Prevent duplicate event listeners
   settings: {
     lockDuration: 30000, // 30 seconds
     stalledInterval: 30000,

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>All Orders - InvesttPlus</title>
+    <link rel="stylesheet" href="../orders.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="brand">📈 InvesttPlus</div>
+        <div class="user-menu">
+            <span class="user-name" id="userName">Welcome!</span>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+    </nav>
+
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+        <ul class="sidebar-menu">
+            <li><a href="../../dashboard/"><span class="icon">📊</span> Dashboard</a></li>
+            <li><a href="../../wallet/"><span class="icon">💰</span> Wallet</a></li>
+            <li><a href="../../stocks/"><span class="icon">📈</span> Stocks</a></li>
+            <li><a href="../../portfolio/"><span class="icon">📋</span> Portfolio</a></li>
+            <li><a href="../../holdings/"><span class="icon">🏦</span> Holdings</a></li>
+            <li><a href="../" class="active"><span class="icon">📋</span> Orders</a></li>
+            <li><a href="../../profile/"><span class="icon">👤</span> Profile</a></li>
+        </ul>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Orders Header -->
+        <div class="dashboard-header">
+            <h1>All Orders History</h1>
+            <p>View complete order history with advanced filters</p>
+        </div>
+
+        <!-- Date Range Filter -->
+        <div class="content-card">
+            <div class="card-header">
+                <h2>Date Range & Filters</h2>
+                <div class="header-actions">
+                    <input type="date" id="startDate" class="filter-select" />
+                    <input type="date" id="endDate" class="filter-select" />
+                    <select id="statusFilter" class="filter-select">
+                        <option value="">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="executed">Executed</option>
+                        <option value="cancelled">Cancelled</option>
+                        <option value="rejected">Rejected</option>
+                        <option value="expired">Expired</option>
+                        <option value="partial">Partial</option>
+                    </select>
+                    <select id="typeFilter" class="filter-select">
+                        <option value="">All Types</option>
+                        <option value="buy">Buy Orders</option>
+                        <option value="sell">Sell Orders</option>
+                    </select>
+                    <select id="orderTypeFilter" class="filter-select">
+                        <option value="">All Order Types</option>
+                        <option value="intraday">Intraday</option>
+                        <option value="delivery">Delivery</option>
+                    </select>
+                    <input type="text" id="searchInput" placeholder="Search by symbol..." class="search-input">
+                    <button class="refresh-btn" id="applyFiltersBtn">🔍 Apply Filters</button>
+                    <button class="refresh-btn" id="refreshBtn">🔄 Refresh</button>
+                    <a href="../" class="primary-btn">📅 Today's Orders</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="stats-grid">
+            <div class="stat-card neutral">
+                <div class="icon">📝</div>
+                <h3>Total Orders</h3>
+                <div class="value" id="totalOrders">0</div>
+                <p>Orders in selected range</p>
+            </div>
+            <div class="stat-card positive">
+                <div class="icon">✅</div>
+                <h3>Executed</h3>
+                <div class="value" id="executedOrders">0</div>
+                <p>Successfully executed</p>
+            </div>
+            <div class="stat-card warning">
+                <div class="icon">⏳</div>
+                <h3>Pending</h3>
+                <div class="value" id="pendingOrders">0</div>
+                <p>Awaiting execution</p>
+            </div>
+            <div class="stat-card negative">
+                <div class="icon">❌</div>
+                <h3>Cancelled/Rejected</h3>
+                <div class="value" id="cancelledOrders">0</div>
+                <p>Failed orders</p>
+            </div>
+        </div>
+
+        <!-- Orders Table -->
+        <div class="content-card full-width">
+            <div class="card-header">
+                <h2>Order History</h2>
+                <div class="header-actions">
+                    <select id="pageSizeSelect" class="filter-select">
+                        <option value="10">10 per page</option>
+                        <option value="25" selected>25 per page</option>
+                        <option value="50">50 per page</option>
+                        <option value="100">100 per page</option>
+                    </select>
+                    <button class="export-btn" id="exportBtn">📤 Export</button>
+                </div>
+            </div>
+            <div class="card-content">
+                <div class="table-container">
+                    <table class="data-table" id="ordersTable">
+                        <thead>
+                            <tr>
+                                <th>Date & Time</th>
+                                <th>Symbol</th>
+                                <th>Type</th>
+                                <th>Order Type</th>
+                                <th>Variant</th>
+                                <th>Quantity</th>
+                                <th>Price</th>
+                                <th>Executed Qty</th>
+                                <th>Executed Price</th>
+                                <th>Status</th>
+                                <th>Order Value</th>
+                                <th>Net Amount</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersTableBody">
+                            <tr>
+                                <td colspan="13" class="loading">
+                                    <div class="spinner"></div>
+                                    <p>Loading orders...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination -->
+                <div id="paginationContainer" style="display: flex; justify-content: center; align-items: center; gap: 1rem; margin-top: 2rem; flex-wrap: wrap;">
+                    <button class="refresh-btn" id="prevPageBtn" disabled>← Previous</button>
+                    <span id="pageInfo" style="color: white; font-weight: 500;">Page 1 of 1</span>
+                    <button class="refresh-btn" id="nextPageBtn" disabled>Next →</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Order Details Modal -->
+        <div id="orderModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Order Details</h2>
+                <div id="orderDetailsContent"></div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Notification Container -->
+    <div id="notificationContainer"></div>
+
+    <script src="all-orders.js"></script>
+</body>
+</html>

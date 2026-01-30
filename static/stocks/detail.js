@@ -9,6 +9,9 @@ let socket = null;
 let currentStock = null;
 let currentPrice = 0;
 let isMarketOpen = false;
+let currentTradeAction = 'buy'; // 'buy' or 'sell'
+let walletBalance = 0;
+let leverageBalance = 0;
 
 // Helper Functions
 function getAuthToken() {
@@ -261,8 +264,8 @@ function updateStockPrice(priceData) {
   // Update price change
   updatePriceChange(priceData);
 
-  // Update order summaries with new price
-  updateOrderSummaries();
+  // Update order summary with new price
+  updateOrderSummary();
 }
 
 function updatePriceChange(stock) {
@@ -336,7 +339,7 @@ async function loadStockDetails() {
   }
 }
 
-function displayStockDetails(stock) {
+async function displayStockDetails(stock) {
   // Update header
   document.getElementById('stockSymbol').textContent = stock.symbol || '-';
   document.getElementById('stockName').textContent = stock.companyName || stock.name || '-';
@@ -361,35 +364,144 @@ function displayStockDetails(stock) {
   document.getElementById('avgVolume').textContent = formatVolume(stock.avgVolume || 0);
   document.getElementById('sectorInfo').textContent = stock.sector || 'N/A';
 
-  // Update order prices
-  document.getElementById('buyPrice').textContent = formatCurrency(currentPrice);
-  document.getElementById('sellPrice').textContent = formatCurrency(currentPrice);
+  // Initialize order summary
+  updateOrderSummary();
 
-  // Initialize order summaries
-  updateOrderSummaries();
+  // Fetch wallet balance
+  await fetchWalletBalance();
 
   // Show content
   document.getElementById('stockDetail').style.display = 'block';
 }
 
-function updateOrderSummaries() {
-  // Update buy summary
-  const buyQty = parseInt(document.getElementById('buyQuantity').value) || 1;
-  document.getElementById('buyQtyDisplay').textContent = buyQty;
-  document.getElementById('buyTotal').textContent = formatCurrency(currentPrice * buyQty);
+// Fetch Wallet Balance
+async function fetchWalletBalance() {
+  try {
+    const response = await makeRequest('/wallet');
+    if (response && response.wallet) {
+      walletBalance = response.wallet.balance || 0;
+      leverageBalance = response.wallet.leverageBalance || 0;
 
-  // Update sell summary
-  const sellQty = parseInt(document.getElementById('sellQuantity').value) || 1;
-  document.getElementById('sellQtyDisplay').textContent = sellQty;
-  document.getElementById('sellTotal').textContent = formatCurrency(currentPrice * sellQty);
+      document.getElementById('availableBalance').textContent = formatCurrency(walletBalance);
+      document.getElementById('leverageBalance').textContent = formatCurrency(leverageBalance);
+    }
+  } catch (error) {
+    console.error('Error fetching wallet balance:', error);
+  }
+}
+
+// Toggle Buy/Sell
+function toggleTradeAction(action) {
+  currentTradeAction = action;
+
+  // Update button states
+  const buyBtn = document.getElementById('buyToggleBtn');
+  const sellBtn = document.getElementById('sellToggleBtn');
+
+  if (action === 'buy') {
+    buyBtn.classList.add('active');
+    sellBtn.classList.remove('active');
+  } else {
+    sellBtn.classList.add('active');
+    buyBtn.classList.remove('active');
+  }
+
+  // Update submit button
+  const submitBtn = document.getElementById('tradeSubmitBtn');
+  if (action === 'buy') {
+    submitBtn.innerHTML = '<span class="icon">🛒</span> Place Buy Order';
+    submitBtn.setAttribute('data-action', 'buy');
+  } else {
+    submitBtn.innerHTML = '<span class="icon">💰</span> Place Sell Order';
+    submitBtn.setAttribute('data-action', 'sell');
+  }
+
+  updateOrderSummary();
+}
+
+// Handle Order Type Change
+function handleOrderTypeChange() {
+  const orderType = document.getElementById('orderType').value;
+
+  // Show/hide leverage balance based on order type
+  if (orderType === 'intraday') {
+    document.getElementById('leverageBalanceDisplay').style.display = 'flex';
+    document.getElementById('normalBalanceDisplay').style.display = 'none';
+    document.getElementById('marginRow').style.display = 'flex';
+  } else {
+    document.getElementById('leverageBalanceDisplay').style.display = 'none';
+    document.getElementById('normalBalanceDisplay').style.display = 'flex';
+    document.getElementById('marginRow').style.display = 'none';
+  }
+
+  updateOrderSummary();
+}
+
+// Handle Order Variant Change
+function handleOrderVariantChange() {
+  const variant = document.getElementById('orderVariant').value;
+
+  // Show/hide price and trigger price fields
+  const priceGroup = document.getElementById('priceGroup');
+  const triggerPriceGroup = document.getElementById('triggerPriceGroup');
+  const priceInput = document.getElementById('orderPrice');
+  const triggerPriceInput = document.getElementById('triggerPrice');
+
+  if (variant === 'market') {
+    priceGroup.style.display = 'none';
+    triggerPriceGroup.style.display = 'none';
+    priceInput.required = false;
+    triggerPriceInput.required = false;
+  } else if (variant === 'limit') {
+    priceGroup.style.display = 'block';
+    triggerPriceGroup.style.display = 'none';
+    priceInput.required = true;
+    triggerPriceInput.required = false;
+  } else if (variant === 'sl') {
+    priceGroup.style.display = 'block';
+    triggerPriceGroup.style.display = 'block';
+    priceInput.required = true;
+    triggerPriceInput.required = true;
+  }
+
+  updateOrderSummary();
+}
+
+function updateOrderSummary() {
+  const quantity = parseInt(document.getElementById('quantity').value) || 1;
+  const orderType = document.getElementById('orderType').value;
+  const orderVariant = document.getElementById('orderVariant').value;
+
+  // Get price based on variant
+  let effectivePrice = currentPrice;
+  if (orderVariant === 'limit' || orderVariant === 'sl') {
+    const customPrice = parseFloat(document.getElementById('orderPrice').value);
+    if (customPrice > 0) {
+      effectivePrice = customPrice;
+    }
+  }
+
+  const total = effectivePrice * quantity;
+
+  // Calculate margin for intraday orders (typically 5x leverage = 20% margin)
+  const marginRequired = orderType === 'intraday' ? total * 0.2 : total;
+
+  // Update summary
+  document.getElementById('summaryPrice').textContent = formatCurrency(effectivePrice);
+  document.getElementById('summaryQty').textContent = quantity;
+  document.getElementById('summaryTotal').textContent = formatCurrency(total);
+  document.getElementById('marginAmount').textContent = formatCurrency(marginRequired);
 }
 
 // Order Placement Functions
-async function placeBuyOrder(event) {
+async function placeOrder(event) {
   event.preventDefault();
 
-  const quantity = parseInt(document.getElementById('buyQuantity').value);
-  const orderType = document.getElementById('buyOrderType').value;
+  const quantity = parseInt(document.getElementById('quantity').value);
+  const orderType = document.getElementById('orderType').value;
+  const orderVariant = document.getElementById('orderVariant').value;
+  const orderPrice = parseFloat(document.getElementById('orderPrice').value);
+  const triggerPrice = parseFloat(document.getElementById('triggerPrice').value);
 
   if (!quantity || quantity < 1) {
     alert('Please enter a valid quantity');
@@ -401,30 +513,71 @@ async function placeBuyOrder(event) {
     return;
   }
 
-  // Confirm order
-  const total = currentPrice * quantity;
-  const confirmed = confirm(
-    `Place Buy Order?\n\n` +
-      `Stock: ${currentStock.symbol}\n` +
-      `Quantity: ${quantity}\n` +
-      `Price: ${formatCurrency(currentPrice)}\n` +
-      `Type: ${orderType}\n` +
-      `Total: ${formatCurrency(total)}`,
-  );
+  // Validate prices for limit and SL orders
+  if ((orderVariant === 'limit' || orderVariant === 'sl') && (!orderPrice || orderPrice <= 0)) {
+    alert('Please enter a valid price');
+    return;
+  }
 
+  if (orderVariant === 'sl' && (!triggerPrice || triggerPrice <= 0)) {
+    alert('Please enter a valid trigger price');
+    return;
+  }
+
+  // Calculate effective price and total
+  let effectivePrice = currentPrice;
+  if (orderVariant === 'limit' || orderVariant === 'sl') {
+    effectivePrice = orderPrice;
+  }
+
+  const total = effectivePrice * quantity;
+  const marginRequired = orderType === 'intraday' ? total * 0.2 : total;
+
+  // Confirm order
+  let confirmMsg =
+    `Place ${currentTradeAction.toUpperCase()} Order?\n\n` +
+    `Stock: ${currentStock.symbol}\n` +
+    `Quantity: ${quantity}\n` +
+    `Type: ${orderType}\n` +
+    `Variant: ${orderVariant}\n`;
+
+  if (orderVariant === 'market') {
+    confirmMsg += `Price: Market Price (${formatCurrency(currentPrice)})\n`;
+  } else if (orderVariant === 'limit') {
+    confirmMsg += `Price: ${formatCurrency(orderPrice)}\n`;
+  } else if (orderVariant === 'sl') {
+    confirmMsg += `Trigger Price: ${formatCurrency(triggerPrice)}\n` + `Limit Price: ${formatCurrency(orderPrice)}\n`;
+  }
+
+  confirmMsg += `Est. Total: ${formatCurrency(total)}\n`;
+
+  if (orderType === 'intraday') {
+    confirmMsg += `Margin Required: ${formatCurrency(marginRequired)}`;
+  }
+
+  const confirmed = confirm(confirmMsg);
   if (!confirmed) return;
 
   try {
+    // Build order payload
     const orderPayload = {
       symbol: currentStock.symbol,
       exchange: currentStock.exchange || 'NSE',
       orderType: orderType,
-      orderVariant: 'market',
-      transactionType: 'buy',
+      orderVariant: orderVariant,
+      transactionType: currentTradeAction,
       quantity: quantity,
     };
 
-    console.log('Placing buy order:', orderPayload);
+    // Add price fields based on variant
+    if (orderVariant === 'limit') {
+      orderPayload.price = orderPrice;
+    } else if (orderVariant === 'sl') {
+      orderPayload.price = orderPrice;
+      orderPayload.triggerPrice = triggerPrice;
+    }
+
+    console.log('Placing order:', orderPayload);
 
     const response = await makeRequest('/orders/place', {
       method: 'POST',
@@ -432,80 +585,30 @@ async function placeBuyOrder(event) {
     });
 
     if (response && response.order) {
-      alert(`Buy Order Placed Successfully!\n\nOrder ID: ${response.order.orderId}\nStatus: ${response.order.status}`);
+      alert(
+        `Order Placed Successfully!\n\n` +
+          `Order ID: ${response.order.orderId}\n` +
+          `Status: ${response.order.status}\n` +
+          `Type: ${currentTradeAction.toUpperCase()}`,
+      );
 
       // Reset form
-      document.getElementById('buyForm').reset();
-      document.getElementById('buyQuantity').value = 1;
-      updateOrderSummaries();
+      document.getElementById('tradingForm').reset();
+      document.getElementById('quantity').value = 1;
+      document.getElementById('orderType').value = 'intraday';
+      document.getElementById('orderVariant').value = 'market';
+      handleOrderTypeChange();
+      handleOrderVariantChange();
+      updateOrderSummary();
+
+      // Refresh wallet balance
+      await fetchWalletBalance();
     } else {
       throw new Error('Failed to place order');
     }
   } catch (error) {
-    console.error('Error placing buy order:', error);
-    alert(`Error: ${error.message || 'Failed to place buy order'}`);
-  }
-}
-
-async function placeSellOrder(event) {
-  event.preventDefault();
-
-  const quantity = parseInt(document.getElementById('sellQuantity').value);
-  const orderType = document.getElementById('sellOrderType').value;
-
-  if (!quantity || quantity < 1) {
-    alert('Please enter a valid quantity');
-    return;
-  }
-
-  if (!currentStock) {
-    alert('Stock data not loaded');
-    return;
-  }
-
-  // Confirm order
-  const total = currentPrice * quantity;
-  const confirmed = confirm(
-    `Place Sell Order?\n\n` +
-      `Stock: ${currentStock.symbol}\n` +
-      `Quantity: ${quantity}\n` +
-      `Price: ${formatCurrency(currentPrice)}\n` +
-      `Type: ${orderType}\n` +
-      `Total: ${formatCurrency(total)}`,
-  );
-
-  if (!confirmed) return;
-
-  try {
-    const orderPayload = {
-      symbol: currentStock.symbol,
-      exchange: currentStock.exchange || 'NSE',
-      orderType: orderType,
-      orderVariant: 'market',
-      transactionType: 'sell',
-      quantity: quantity,
-    };
-
-    console.log('Placing sell order:', orderPayload);
-
-    const response = await makeRequest('/orders/place', {
-      method: 'POST',
-      body: JSON.stringify(orderPayload),
-    });
-
-    if (response && response.order) {
-      alert(`Sell Order Placed Successfully!\n\nOrder ID: ${response.order.orderId}\nStatus: ${response.order.status}`);
-
-      // Reset form
-      document.getElementById('sellForm').reset();
-      document.getElementById('sellQuantity').value = 1;
-      updateOrderSummaries();
-    } else {
-      throw new Error('Failed to place order');
-    }
-  } catch (error) {
-    console.error('Error placing sell order:', error);
-    alert(`Error: ${error.message || 'Failed to place sell order'}`);
+    console.error('Error placing order:', error);
+    alert(`Error: ${error.message || 'Failed to place order'}`);
   }
 }
 
@@ -536,13 +639,23 @@ function initializeEventListeners() {
     window.location.href = '../auth/login/index.html';
   });
 
-  // Buy form
-  document.getElementById('buyForm').addEventListener('submit', placeBuyOrder);
-  document.getElementById('buyQuantity').addEventListener('input', updateOrderSummaries);
+  // Buy/Sell Toggle
+  document.getElementById('buyToggleBtn').addEventListener('click', () => toggleTradeAction('buy'));
+  document.getElementById('sellToggleBtn').addEventListener('click', () => toggleTradeAction('sell'));
 
-  // Sell form
-  document.getElementById('sellForm').addEventListener('submit', placeSellOrder);
-  document.getElementById('sellQuantity').addEventListener('input', updateOrderSummaries);
+  // Order Type Change
+  document.getElementById('orderType').addEventListener('change', handleOrderTypeChange);
+
+  // Order Variant Change
+  document.getElementById('orderVariant').addEventListener('change', handleOrderVariantChange);
+
+  // Input changes
+  document.getElementById('quantity').addEventListener('input', updateOrderSummary);
+  document.getElementById('orderPrice').addEventListener('input', updateOrderSummary);
+  document.getElementById('triggerPrice').addEventListener('input', updateOrderSummary);
+
+  // Trading form
+  document.getElementById('tradingForm').addEventListener('submit', placeOrder);
 
   // Watchlist button (placeholder)
   document.getElementById('addWatchlistBtn').addEventListener('click', () => {

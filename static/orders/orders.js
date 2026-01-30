@@ -1,0 +1,653 @@
+/* eslint-disable no-unused-vars */
+/* Orders Page JavaScript */
+
+const API_BASE = window.location.origin + '/v1';
+let ordersData = [];
+let filteredOrders = [];
+let isLoading = false;
+let refreshInterval = null;
+
+// Check authentication
+const token = localStorage.getItem('token');
+if (!token) {
+  window.location.href = '../auth/login/index.html';
+}
+
+// Enhanced notification system
+class NotificationManager {
+  static show(message, type = 'info', duration = 5000) {
+    const existingNotifications = document.querySelectorAll('.notification');
+    existingNotifications.forEach((notif) => notif.remove());
+
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.innerHTML = `
+      <div class="notification-content">
+        <div class="notification-icon">${this.getIcon(type)}</div>
+        <div class="notification-message">${message}</div>
+        <button class="notification-close">&times;</button>
+      </div>
+    `;
+
+    if (!document.getElementById('notification-styles')) {
+      const styles = document.createElement('style');
+      styles.id = 'notification-styles';
+      styles.textContent = `
+        .notification {
+          position: fixed;
+          top: 80px;
+          right: 20px;
+          z-index: 10000;
+          background: rgba(255, 255, 255, 0.15);
+          backdrop-filter: blur(20px);
+          border-radius: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          padding: 1rem;
+          min-width: 300px;
+          max-width: 400px;
+          animation: slideInRight 0.3s ease;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+        .notification.success { border-left: 4px solid #10b981; }
+        .notification.error { border-left: 4px solid #ef4444; }
+        .notification.warning { border-left: 4px solid #f59e0b; }
+        .notification.info { border-left: 4px solid #3b82f6; }
+        .notification-content {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          color: white;
+        }
+        .notification-icon { font-size: 1.5rem; }
+        .notification-message { flex: 1; font-weight: 500; }
+        .notification-close {
+          background: none;
+          border: none;
+          color: rgba(255, 255, 255, 0.8);
+          font-size: 1.25rem;
+          cursor: pointer;
+          padding: 0;
+        }
+        @keyframes slideInRight {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+      `;
+      document.head.appendChild(styles);
+    }
+
+    document.body.appendChild(notification);
+
+    const closeBtn = notification.querySelector('.notification-close');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => notification.remove());
+    }
+
+    setTimeout(() => notification.remove(), duration);
+  }
+
+  static getIcon(type) {
+    const icons = {
+      success: '✅',
+      error: '❌',
+      warning: '⚠️',
+      info: 'ℹ️',
+    };
+    return icons[type] || icons.info;
+  }
+}
+
+// Utility functions
+function formatCurrency(amount) {
+  // If already formatted as string (from backend), return as is
+  if (typeof amount === 'string' && amount.includes('₹')) {
+    return amount;
+  }
+
+  if (amount === null || amount === undefined || isNaN(amount)) {
+    return '₹0.00';
+  }
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 2,
+  }).format(Math.abs(amount));
+}
+
+function formatDate(dateString) {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString);
+  return date.toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function formatTime(dateString) {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString);
+  return date.toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
+
+// API Functions
+async function fetchOrders() {
+  try {
+    // Get today's date range
+    const today = new Date();
+    const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString();
+    const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString();
+
+    const queryParams = new URLSearchParams({
+      startDate: startOfDay,
+      endDate: endOfDay,
+      limit: 100,
+      sort: 'createdAt:desc',
+    });
+
+    const response = await fetch(`${API_BASE}/orders?${queryParams.toString()}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to fetch orders');
+    }
+
+    const data = await response.json();
+    return data.orders || [];
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    throw error;
+  }
+}
+
+async function cancelOrder(orderId, reason = 'User cancelled') {
+  try {
+    const response = await fetch(`${API_BASE}/orders/${orderId}/cancel`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ reason }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to cancel order');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error cancelling order:', error);
+    throw error;
+  }
+}
+
+// Update Statistics
+function updateStatistics() {
+  const totalOrders = ordersData.length;
+  const executedOrders = ordersData.filter((o) => o.status === 'executed').length;
+  const pendingOrders = ordersData.filter((o) => o.status === 'pending').length;
+  const cancelledOrders = ordersData.filter((o) => ['cancelled', 'rejected', 'expired'].includes(o.status)).length;
+
+  document.getElementById('totalOrders').textContent = totalOrders;
+  document.getElementById('executedOrders').textContent = executedOrders;
+  document.getElementById('pendingOrders').textContent = pendingOrders;
+  document.getElementById('cancelledOrders').textContent = cancelledOrders;
+}
+
+// Update Orders Table
+function updateOrdersTable() {
+  const tableBody = document.getElementById('ordersTableBody');
+
+  if (filteredOrders.length === 0) {
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="13" style="text-align: center; padding: 3rem; color: rgba(255, 255, 255, 0.7);">
+          <div style="font-size: 3rem; margin-bottom: 1rem;">📭</div>
+          <p style="font-size: 1.1rem;">No orders found</p>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tableBody.innerHTML = filteredOrders
+    .map((order) => {
+      const canCancel = order.status === 'pending';
+      const executedQty = order.executedQuantity ?? 0;
+      const executedPrice = order.executedPrice ?? 0;
+      const quantity = order.quantity ?? 0;
+      const price = order.price ?? 0;
+      // Backend may return formatted strings, extract numbers if needed
+      const orderValue = typeof order.orderValue === 'string' ? order.orderValue : (order.orderValue ?? 0);
+      const netAmount = typeof order.netAmount === 'string' ? order.netAmount : (order.netAmount ?? 0);
+
+      return `
+        <tr>
+          <td>${formatTime(order.createdAt)}</td>
+          <td>
+            <div style="font-weight: 600; color: white;">${order.symbol || 'N/A'}</div>
+            <div style="font-size: 0.8rem; color: rgba(255, 255, 255, 0.6);">${order.exchange || 'NSE'}</div>
+          </td>
+          <td>
+            <span class="order-type ${(order.transactionType || 'buy').toLowerCase()}">
+              ${(order.transactionType || 'N/A').toUpperCase()}
+            </span>
+          </td>
+          <td>
+            <span class="order-type ${(order.orderType || 'intraday').toLowerCase()}">
+              ${(order.orderType || 'N/A').toUpperCase()}
+            </span>
+          </td>
+          <td>
+            <div style="font-weight: 500; color: white;">${(order.orderVariant || 'market').toUpperCase()}</div>
+            ${order.triggerPrice > 0 ? `<div style="font-size: 0.8rem; color: rgba(255, 255, 255, 0.6);">Trigger: ${formatCurrency(order.triggerPrice)}</div>` : ''}
+          </td>
+          <td>${quantity.toLocaleString()}</td>
+          <td>${order.orderVariant === 'market' ? 'Market Price' : formatCurrency(price)}</td>
+          <td>${executedQty > 0 ? executedQty.toLocaleString() : '-'}</td>
+          <td>${executedPrice > 0 ? formatCurrency(executedPrice) : '-'}</td>
+          <td>
+            <span class="status-badge ${(order.status || 'pending').toLowerCase()}">
+              ${(order.status || 'N/A').toUpperCase()}
+            </span>
+          </td>
+          <td>${formatCurrency(orderValue)}</td>
+          <td style="font-weight: 600; color: white;">${formatCurrency(netAmount)}</td>
+          <td>
+            <div style="display: flex; gap: 0.5rem;">
+              <button class="action-btn view" onclick="viewOrderDetails('${order.id}')" title="View Details">
+                👁️
+              </button>
+              ${
+                canCancel
+                  ? `<button class="action-btn cancel" onclick="handleCancelOrder('${order.id}')" title="Cancel Order">
+                ❌
+              </button>`
+                  : ''
+              }
+            </div>
+          </td>
+        </tr>
+      `;
+    })
+    .join('');
+}
+
+// View Order Details
+function viewOrderDetails(orderId) {
+  const order = ordersData.find((o) => o.id === orderId);
+  if (!order) return;
+
+  const modal = document.getElementById('orderModal');
+  const content = document.getElementById('orderDetailsContent');
+
+  const executedQty = order.executedQuantity ?? 0;
+  const executedPrice = order.executedPrice ?? 0;
+  const quantity = order.quantity ?? 0;
+  const price = order.price ?? 0;
+
+  // Helper function to extract number from formatted string
+  const parseFormattedValue = (value) => {
+    if (typeof value === 'string' && value.includes('₹')) {
+      return parseFloat(value.replace(/[^₹0-9.-]/g, '').replace('₹', '')) || 0;
+    }
+    return value ?? 0;
+  };
+
+  content.innerHTML = `
+    <div class="order-detail-grid">
+      <div class="detail-item">
+        <label>Order ID</label>
+        <div class="value">${order.id}</div>
+      </div>
+      <div class="detail-item">
+        <label>Symbol</label>
+        <div class="value">${order.symbol || 'N/A'}</div>
+      </div>
+      <div class="detail-item">
+        <label>Exchange</label>
+        <div class="value">${order.exchange || 'NSE'}</div>
+      </div>
+      <div class="detail-item">
+        <label>Transaction Type</label>
+        <div class="value">
+          <span class="order-type ${(order.transactionType || 'buy').toLowerCase()}">
+            ${(order.transactionType || 'N/A').toUpperCase()}
+          </span>
+        </div>
+      </div>
+      <div class="detail-item">
+        <label>Order Type</label>
+        <div class="value">
+          <span class="order-type ${(order.orderType || 'intraday').toLowerCase()}">
+            ${(order.orderType || 'N/A').toUpperCase()}
+          </span>
+        </div>
+      </div>
+      <div class="detail-item">
+        <label>Order Variant</label>
+        <div class="value">${(order.orderVariant || 'market').toUpperCase()}</div>
+      </div>
+      <div class="detail-item">
+        <label>Quantity</label>
+        <div class="value">${quantity.toLocaleString()}</div>
+      </div>
+      <div class="detail-item">
+        <label>Price</label>
+        <div class="value">${order.orderVariant === 'market' ? 'Market Price' : formatCurrency(price)}</div>
+      </div>
+      ${
+        order.triggerPrice && order.triggerPrice > 0
+          ? `
+      <div class="detail-item">
+        <label>Trigger Price</label>
+        <div class="value">${formatCurrency(order.triggerPrice)}</div>
+      </div>
+      `
+          : ''
+      }
+      <div class="detail-item">
+        <label>Status</label>
+        <div class="value">
+          <span class="status-badge ${(order.status || 'pending').toLowerCase()}">
+            ${(order.status || 'N/A').toUpperCase()}
+          </span>
+        </div>
+      </div>
+      ${
+        executedQty > 0
+          ? `
+      <div class="detail-item">
+        <label>Executed Quantity</label>
+        <div class="value">${executedQty.toLocaleString()}</div>
+      </div>
+      <div class="detail-item">
+        <label>Executed Price</label>
+        <div class="value">${formatCurrency(executedPrice)}</div>
+      </div>
+      <div class="detail-item">
+        <label>Executed At</label>
+        <div class="value">${formatDate(order.executedAt)}</div>
+      </div>
+      `
+          : ''
+      }
+      <div class="detail-item">
+        <label>Order Value</label>
+        <div class="value">${formatCurrency(order.orderValue)}</div>
+      </div>
+      <div class="detail-item">
+        <label>Brokerage</label>
+        <div class="value">${formatCurrency(order.brokerage ?? 0)}</div>
+      </div>
+      <div class="detail-item">
+        <label>STT</label>
+        <div class="value">${formatCurrency(order.stt ?? 0)}</div>
+      </div>
+      <div class="detail-item">
+        <label>Transaction Charges</label>
+        <div class="value">${formatCurrency(order.transactionCharges ?? 0)}</div>
+      </div>
+      <div class="detail-item">
+        <label>GST</label>
+        <div class="value">${formatCurrency(order.gst ?? 0)}</div>
+      </div>
+      <div class="detail-item">
+        <label>SEBI Charges</label>
+        <div class="value">${formatCurrency(order.sebiCharges ?? 0)}</div>
+      </div>
+      <div class="detail-item">
+        <label>Stamp Duty</label>
+        <div class="value">${formatCurrency(order.stampDuty ?? 0)}</div>
+      </div>
+      <div class="detail-item">
+        <label>Total Charges</label>
+        <div class="value">${formatCurrency(order.totalCharges)}</div>
+      </div>
+      <div class="detail-item">
+        <label>Net Amount</label>
+        <div class="value" style="font-size: 1.3rem; color: #10b981;">${formatCurrency(order.netAmount)}</div>
+      </div>
+      <div class="detail-item">
+        <label>Created At</label>
+        <div class="value">${formatDate(order.createdAt)}</div>
+      </div>
+      ${
+        order.cancelledAt
+          ? `
+      <div class="detail-item">
+        <label>Cancelled At</label>
+        <div class="value">${formatDate(order.cancelledAt)}</div>
+      </div>
+      `
+          : ''
+      }
+      ${
+        order.cancellationReason
+          ? `
+      <div class="detail-item" style="grid-column: 1 / -1;">
+        <label>Cancellation Reason</label>
+        <div class="value">${order.cancellationReason}</div>
+      </div>
+      `
+          : ''
+      }
+      ${
+        order.rejectionReason
+          ? `
+      <div class="detail-item" style="grid-column: 1 / -1;">
+        <label>Rejection Reason</label>
+        <div class="value">${order.rejectionReason}</div>
+      </div>
+      `
+          : ''
+      }
+    </div>
+  `;
+
+  modal.style.display = 'block';
+}
+
+// Handle Cancel Order
+async function handleCancelOrder(orderId) {
+  if (!confirm('Are you sure you want to cancel this order?')) {
+    return;
+  }
+
+  try {
+    await cancelOrder(orderId);
+    NotificationManager.show('Order cancelled successfully', 'success');
+    await loadOrders();
+  } catch (error) {
+    NotificationManager.show(error.message || 'Failed to cancel order', 'error');
+  }
+}
+
+// Filter Orders
+function filterOrders() {
+  const statusFilter = document.getElementById('statusFilter').value;
+  const typeFilter = document.getElementById('typeFilter').value;
+  const orderTypeFilter = document.getElementById('orderTypeFilter').value;
+  const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+
+  filteredOrders = ordersData.filter((order) => {
+    if (statusFilter && order.status !== statusFilter) return false;
+    if (typeFilter && order.transactionType !== typeFilter) return false;
+    if (orderTypeFilter && order.orderType !== orderTypeFilter) return false;
+    if (searchTerm && !order.symbol.toLowerCase().includes(searchTerm)) return false;
+    return true;
+  });
+
+  updateOrdersTable();
+}
+
+// Load Orders
+async function loadOrders() {
+  try {
+    isLoading = true;
+    setLoadingState(true);
+
+    ordersData = await fetchOrders();
+    filteredOrders = [...ordersData];
+
+    updateStatistics();
+    updateOrdersTable();
+
+    NotificationManager.show('Orders loaded successfully', 'success', 3000);
+  } catch (error) {
+    console.error('Error loading orders:', error);
+    NotificationManager.show('Failed to load orders', 'error');
+    showErrorState();
+  } finally {
+    isLoading = false;
+    setLoadingState(false);
+  }
+}
+
+// Loading State
+function setLoadingState(loading) {
+  const refreshBtn = document.getElementById('refreshBtn');
+  if (refreshBtn) {
+    refreshBtn.disabled = loading;
+    refreshBtn.innerHTML = loading ? '🔄 Loading...' : '🔄 Refresh';
+  }
+}
+
+// Error State
+function showErrorState() {
+  const tableBody = document.getElementById('ordersTableBody');
+  tableBody.innerHTML = `
+    <tr>
+      <td colspan="13" style="text-align: center; padding: 3rem; color: rgba(255, 255, 255, 0.7);">
+        <div style="font-size: 3rem; margin-bottom: 1rem;">⚠️</div>
+        <p style="font-size: 1.1rem;">Failed to load orders</p>
+        <button onclick="loadOrders()" class="refresh-btn" style="margin-top: 1rem;">
+          Try Again
+        </button>
+      </td>
+    </tr>
+  `;
+}
+
+// Export Orders
+function exportOrders() {
+  if (filteredOrders.length === 0) {
+    NotificationManager.show('No orders to export', 'warning');
+    return;
+  }
+
+  const csvContent = [
+    [
+      'Time',
+      'Symbol',
+      'Type',
+      'Order Type',
+      'Variant',
+      'Quantity',
+      'Price',
+      'Executed Qty',
+      'Executed Price',
+      'Status',
+      'Order Value',
+      'Net Amount',
+    ].join(','),
+    ...filteredOrders.map((order) =>
+      [
+        formatTime(order.createdAt),
+        order.symbol,
+        order.transactionType,
+        order.orderType,
+        order.orderVariant,
+        order.quantity,
+        order.price || 0,
+        order.executedQuantity || 0,
+        order.executedPrice || 0,
+        order.status,
+        order.orderValue,
+        order.netAmount,
+      ].join(','),
+    ),
+  ].join('\n');
+
+  const blob = new Blob([csvContent], { type: 'text/csv' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `orders_${new Date().toISOString().split('T')[0]}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+
+  NotificationManager.show('Orders exported successfully', 'success');
+}
+
+// Logout
+function logout() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  window.location.href = '../auth/login/index.html';
+}
+
+// Display user name
+function displayUserInfo() {
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const userName = document.getElementById('userName');
+  if (userName && user.name) {
+    userName.textContent = `Welcome, ${user.name}!`;
+  }
+}
+
+// Event Listeners
+document.addEventListener('DOMContentLoaded', async () => {
+  displayUserInfo();
+  await loadOrders();
+
+  // Setup filters
+  document.getElementById('statusFilter')?.addEventListener('change', filterOrders);
+  document.getElementById('typeFilter')?.addEventListener('change', filterOrders);
+  document.getElementById('orderTypeFilter')?.addEventListener('change', filterOrders);
+  document.getElementById('searchInput')?.addEventListener('input', filterOrders);
+
+  // Setup buttons
+  document.getElementById('refreshBtn')?.addEventListener('click', loadOrders);
+  document.getElementById('exportBtn')?.addEventListener('click', exportOrders);
+
+  // Setup modal
+  const modal = document.getElementById('orderModal');
+  const closeBtn = document.querySelector('.close');
+
+  closeBtn?.addEventListener('click', () => {
+    modal.style.display = 'none';
+  });
+
+  window.addEventListener('click', (event) => {
+    if (event.target === modal) {
+      modal.style.display = 'none';
+    }
+  });
+
+  // Auto refresh every 30 seconds
+  refreshInterval = setInterval(loadOrders, 30000);
+});
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+  if (refreshInterval) {
+    clearInterval(refreshInterval);
+  }
+});
