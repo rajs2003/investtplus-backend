@@ -178,7 +178,10 @@ async function makeRequest(url, options = {}) {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      const error = new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      error.status = response.status;
+      error.data = errorData;
+      throw error;
     }
 
     return await response.json();
@@ -197,19 +200,45 @@ async function loadWalletData() {
     if (detailsResponse) {
       walletData = detailsResponse;
       updateWalletDisplay(detailsResponse);
+
+      // Load transaction summary
+      await loadTransactionSummary();
+
+      // Load transaction history
+      await loadTransactionHistory();
+
+      NotificationManager.show('Wallet data loaded successfully', 'success', 3000);
     }
-
-    // Load transaction summary
-    await loadTransactionSummary();
-
-    // Load transaction history
-    await loadTransactionHistory();
-
-    NotificationManager.show('Wallet data loaded successfully', 'success', 3000);
   } catch (error) {
-    console.error('Error loading wallet data:', error);
-    NotificationManager.show(error.message || 'Failed to load wallet data', 'error');
-    showErrorState();
+    console.error('Error loading wallet:', error);
+
+    // Check if error is 404 (Wallet not found)
+    if (error.status === 404 || error.message.includes('Wallet not found') || error.message.includes('not found')) {
+      NotificationManager.show('Wallet not found. Creating wallet automatically...', 'info', 3000);
+      await createWallet();
+    } else {
+      NotificationManager.show(`Failed to load wallet: ${error.message}`, 'error');
+      showErrorState();
+    }
+  }
+}
+
+// Create wallet automatically
+async function createWallet() {
+  try {
+    const response = await makeRequest(`${API_BASE}/wallet/create`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+
+    if (response) {
+      NotificationManager.show('✅ Wallet created successfully!', 'success', 3000);
+      // Reload wallet data after creation
+      setTimeout(() => loadWalletData(), 1000);
+    }
+  } catch (error) {
+    console.error('Error creating wallet:', error);
+    NotificationManager.show(`Failed to create wallet: ${error.message}`, 'error');
   }
 }
 
