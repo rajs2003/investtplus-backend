@@ -71,12 +71,7 @@ const router = express.Router();
  *       401:
  *         description: Unauthorized
  */
-router.post(
-  '/',
-  auth('user', 'admin', 'superadmin'),
-  validate(watchlistValidation.createWatchlist),
-  watchlistController.createWatchlist,
-);
+router.post('/', auth('user'), validate(watchlistValidation.createWatchlist), watchlistController.createWatchlist);
 
 /**
  * @swagger
@@ -92,12 +87,7 @@ router.post(
  *       401:
  *         description: Unauthorized
  */
-router.get(
-  '/',
-  auth('user', 'admin', 'superadmin'),
-  validate(watchlistValidation.getWatchlists),
-  watchlistController.getUserWatchlists,
-);
+router.get('/', auth('user'), validate(watchlistValidation.getWatchlists), watchlistController.getUserWatchlists);
 
 /**
  * @swagger
@@ -120,12 +110,7 @@ router.get(
  *       401:
  *         description: Unauthorized
  */
-router.get(
-  '/search',
-  auth('user', 'admin', 'superadmin'),
-  validate(watchlistValidation.searchStock),
-  watchlistController.searchStock,
-);
+router.get('/search', auth('user'), validate(watchlistValidation.searchStock), watchlistController.searchStock);
 
 /**
  * @swagger
@@ -155,12 +140,7 @@ router.get(
  *       404:
  *         description: Watchlist not found
  */
-router.get(
-  '/:watchlistId',
-  auth('user', 'admin', 'superadmin'),
-  validate(watchlistValidation.getWatchlist),
-  watchlistController.getWatchlist,
-);
+router.get('/:watchlistId', auth('user'), validate(watchlistValidation.getWatchlist), watchlistController.getWatchlist);
 
 /**
  * @swagger
@@ -207,7 +187,7 @@ router.get(
  */
 router.patch(
   '/:watchlistId',
-  auth('user', 'admin', 'superadmin'),
+  auth('user'),
   validate(watchlistValidation.updateWatchlist),
   watchlistController.updateWatchlist,
 );
@@ -237,7 +217,7 @@ router.patch(
  */
 router.delete(
   '/:watchlistId',
-  auth('user', 'admin', 'superadmin'),
+  auth('user'),
   validate(watchlistValidation.deleteWatchlist),
   watchlistController.deleteWatchlist,
 );
@@ -286,12 +266,7 @@ router.delete(
  *       404:
  *         description: Watchlist not found
  */
-router.post(
-  '/:watchlistId/stocks',
-  auth('user', 'admin', 'superadmin'),
-  validate(watchlistValidation.addStock),
-  watchlistController.addStock,
-);
+router.post('/:watchlistId/stocks', auth('user'), validate(watchlistValidation.addStock), watchlistController.addStock);
 
 /**
  * @swagger
@@ -330,7 +305,7 @@ router.post(
  */
 router.delete(
   '/:watchlistId/stocks/:symbol',
-  auth('user', 'admin', 'superadmin'),
+  auth('user'),
   validate(watchlistValidation.removeStock),
   watchlistController.removeStock,
 );
@@ -376,7 +351,7 @@ router.delete(
  */
 router.put(
   '/:watchlistId/reorder',
-  auth('user', 'admin', 'superadmin'),
+  auth('user'),
   validate(watchlistValidation.reorderStocks),
   watchlistController.reorderStocks,
 );

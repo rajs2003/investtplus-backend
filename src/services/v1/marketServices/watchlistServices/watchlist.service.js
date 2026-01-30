@@ -2,8 +2,8 @@ const httpStatus = require('http-status');
 const { Watchlist } = require('../../../../models');
 const ApiError = require('../../../../utils/ApiError');
 const logger = require('../../../../config/logger');
-const { getRedisClient } = require('../../../../utils/redisUtil');
-const { marketService, stockService } = require('../../../../services');
+const { getRedisClient } = require('../../../../db/redis');
+const { marketDataService } = require('../../mockMarket');
 
 /**
  * Create a new watchlist
@@ -149,43 +149,41 @@ const getWatchlistWithPrices = async (watchlistId, userId) => {
       };
     }
 
-    // Fetch live prices for all stocks in parallel
-    const stocksWithPrices = await Promise.all(
-      watchlist.stocks.map(async (stock) => {
-        try {
-          const liveData = await marketService.getLTP(stock.exchange, stock.symbolToken, stock.symbol);
+    // Get current prices from market data service
+    const stocksWithPrices = watchlist.stocks.map((stock) => {
+      try {
+        const priceData = marketDataService.getCurrentPrice(stock.symbol, stock.exchange);
 
-          return {
-            symbol: stock.symbol,
-            symbolToken: stock.symbolToken,
-            exchange: stock.exchange,
-            companyName: stock.companyName,
-            addedAt: stock.addedAt,
-            ltp: liveData.ltp || stock.lastPrice || 0,
-            change: liveData.change || 0,
-            changePercent: liveData.changePercent || 0,
-            open: liveData.open || 0,
-            high: liveData.high || 0,
-            low: liveData.low || 0,
-            close: liveData.close || 0,
-            volume: liveData.volume || 0,
-          };
-        } catch (error) {
-          logger.warn(`Failed to fetch price for ${stock.symbol}`, error);
-          return {
-            symbol: stock.symbol,
-            symbolToken: stock.symbolToken,
-            exchange: stock.exchange,
-            companyName: stock.companyName,
-            addedAt: stock.addedAt,
-            ltp: stock.lastPrice || 0,
-            change: 0,
-            changePercent: 0,
-            error: 'Price unavailable',
-          };
-        }
-      }),
-    );
+        return {
+          symbol: stock.symbol,
+          symbolToken: stock.symbolToken,
+          exchange: stock.exchange,
+          companyName: stock.companyName,
+          addedAt: stock.addedAt,
+          ltp: priceData.data.ltp || stock.lastPrice || 0,
+          change: priceData.data.change || 0,
+          changePercent: priceData.data.changePercent || 0,
+          open: priceData.data.open || 0,
+          high: priceData.data.high || 0,
+          low: priceData.data.low || 0,
+          close: priceData.data.close || 0,
+          volume: priceData.data.volume || 0,
+        };
+      } catch (error) {
+        logger.warn(`Failed to fetch price for ${stock.symbol}`, error);
+        return {
+          symbol: stock.symbol,
+          symbolToken: stock.symbolToken,
+          exchange: stock.exchange,
+          companyName: stock.companyName,
+          addedAt: stock.addedAt,
+          ltp: stock.lastPrice || 0,
+          change: 0,
+          changePercent: 0,
+          error: 'Price unavailable',
+        };
+      }
+    });
 
     return {
       _id: watchlist._id,
@@ -220,21 +218,17 @@ const addStockToWatchlist = async (watchlistId, userId, stockData) => {
   try {
     const watchlist = await getWatchlistById(watchlistId, userId);
 
-    // Validate stock data by fetching from market
+    // Use market data service for validation
     let validatedStock;
     try {
-      const stockInfo = await stockService.getRealtimeStockPrice(
-        stockData.symbol,
-        stockData.exchange || 'NSE',
-        stockData.symbolToken,
-      );
+      const priceData = marketDataService.getCurrentPrice(stockData.symbol, stockData.exchange || 'NSE');
 
       validatedStock = {
         symbol: stockData.symbol.toUpperCase(),
         symbolToken: stockData.symbolToken,
         exchange: stockData.exchange || 'NSE',
         companyName: stockData.companyName || stockData.symbol,
-        lastPrice: stockInfo.data?.lastPrice || 0,
+        lastPrice: priceData.data.ltp || 0,
       };
     } catch (error) {
       logger.warn('Could not validate stock, adding anyway', error);
@@ -502,9 +496,10 @@ const batchUpdateWatchlistPrices = async (userId) => {
       if (watchlist.stocks && watchlist.stocks.length > 0) {
         for (const stock of watchlist.stocks) {
           try {
-            const liveData = await marketService.getLTP(stock.exchange, stock.symbolToken, stock.symbol);
+            // Get current price from market data service
+            const priceData = marketDataService.getCurrentPrice(stock.symbol, stock.exchange);
 
-            watchlist.updateStockPrice(stock.symbol, liveData.ltp || 0, stock.exchange);
+            watchlist.updateStockPrice(stock.symbol, priceData.data.ltp || 0, stock.exchange);
             updatedCount++;
           } catch (error) {
             logger.warn(`Failed to update price for ${stock.symbol}`, error);

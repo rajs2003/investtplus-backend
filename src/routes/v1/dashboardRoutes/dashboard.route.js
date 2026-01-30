@@ -62,7 +62,7 @@ const router = express.Router();
  *       401:
  *         description: Unauthorized
  */
-router.get('/market-overview', auth('user', 'admin', 'superadmin'), dashboardController.getMarketOverview);
+router.get('/market-overview', auth('user'), dashboardController.getMarketOverview);
 
 /**
  * @swagger
@@ -89,7 +89,7 @@ router.get('/market-overview', auth('user', 'admin', 'superadmin'), dashboardCon
  */
 router.get(
   '/popular-stocks',
-  auth('user', 'admin', 'superadmin'),
+  auth('user'),
   validate(dashboardValidation.getPopularStocks),
   dashboardController.getPopularStocks,
 );
@@ -117,12 +117,7 @@ router.get(
  *       401:
  *         description: Unauthorized
  */
-router.get(
-  '/top-gainers',
-  auth('user', 'admin', 'superadmin'),
-  validate(dashboardValidation.getTopGainers),
-  dashboardController.getTopGainers,
-);
+router.get('/top-gainers', auth('user'), validate(dashboardValidation.getTopGainers), dashboardController.getTopGainers);
 
 /**
  * @swagger
@@ -147,12 +142,7 @@ router.get(
  *       401:
  *         description: Unauthorized
  */
-router.get(
-  '/top-losers',
-  auth('user', 'admin', 'superadmin'),
-  validate(dashboardValidation.getTopLosers),
-  dashboardController.getTopLosers,
-);
+router.get('/top-losers', auth('user'), validate(dashboardValidation.getTopLosers), dashboardController.getTopLosers);
 
 /**
  * @swagger
@@ -188,7 +178,7 @@ router.get(
  *       401:
  *         description: Unauthorized
  */
-router.get('/sector-performance', auth('user', 'admin', 'superadmin'), dashboardController.getSectorPerformance);
+router.get('/sector-performance', auth('user'), dashboardController.getSectorPerformance);
 
 /**
  * @swagger
@@ -237,7 +227,7 @@ router.get('/sector-performance', auth('user', 'admin', 'superadmin'), dashboard
  *       401:
  *         description: Unauthorized
  */
-router.get('/portfolio-analytics', auth('user', 'admin', 'superadmin'), dashboardController.getPortfolioAnalytics);
+router.get('/portfolio-analytics', auth('user'), dashboardController.getPortfolioAnalytics);
 
 /**
  * @swagger
@@ -253,7 +243,7 @@ router.get('/portfolio-analytics', auth('user', 'admin', 'superadmin'), dashboar
  *       401:
  *         description: Unauthorized
  */
-router.get('/activity-summary', auth('user', 'admin', 'superadmin'), dashboardController.getUserActivitySummary);
+router.get('/activity-summary', auth('user'), dashboardController.getUserActivitySummary);
 
 /**
  * @swagger

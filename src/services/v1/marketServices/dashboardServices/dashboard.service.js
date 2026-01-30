@@ -3,7 +3,7 @@ const { Holding, Order, Transaction, Wallet, User } = require('../../../../model
 const ApiError = require('../../../../utils/ApiError');
 const logger = require('../../../../config/logger');
 const { getRedisClient } = require('../../../../utils/redisUtil');
-const { marketService } = require('../../../../services');
+const { marketDataService } = require('../../mockMarket');
 
 /**
  * Get market overview (indices, market status)
@@ -23,54 +23,24 @@ const getMarketOverview = async () => {
       }
     }
 
-    // Fetch major indices (NIFTY 50, SENSEX, BANK NIFTY)
-    const indices = await Promise.all([
-      marketService.getLTP('NSE', '99926000', 'NIFTY 50').catch(() => null), // Nifty 50
-      marketService.getLTP('NSE', '99926009', 'NIFTY BANK').catch(() => null), // Bank Nifty
-      marketService.getLTP('BSE', '99919000', 'SENSEX').catch(() => null), // Sensex
-    ]);
+    // Fetch major indices from market data service
+    const indicesData = marketDataService.getIndices();
 
     const marketOverview = {
       timestamp: new Date(),
-      marketStatus: getMarketStatus(),
-      indices: [
-        {
-          name: 'NIFTY 50',
-          symbol: 'NIFTY50',
-          exchange: 'NSE',
-          ltp: indices[0]?.ltp || 0,
-          change: indices[0]?.change || 0,
-          changePercent: indices[0]?.changePercent || 0,
-          open: indices[0]?.open || 0,
-          high: indices[0]?.high || 0,
-          low: indices[0]?.low || 0,
-          previousClose: indices[0]?.close || 0,
-        },
-        {
-          name: 'NIFTY BANK',
-          symbol: 'BANKNIFTY',
-          exchange: 'NSE',
-          ltp: indices[1]?.ltp || 0,
-          change: indices[1]?.change || 0,
-          changePercent: indices[1]?.changePercent || 0,
-          open: indices[1]?.open || 0,
-          high: indices[1]?.high || 0,
-          low: indices[1]?.low || 0,
-          previousClose: indices[1]?.close || 0,
-        },
-        {
-          name: 'SENSEX',
-          symbol: 'SENSEX',
-          exchange: 'BSE',
-          ltp: indices[2]?.ltp || 0,
-          change: indices[2]?.change || 0,
-          changePercent: indices[2]?.changePercent || 0,
-          open: indices[2]?.open || 0,
-          high: indices[2]?.high || 0,
-          low: indices[2]?.low || 0,
-          previousClose: indices[2]?.close || 0,
-        },
-      ],
+      marketStatus: marketDataService.getMarketStatus(),
+      indices: indicesData.data.map((index) => ({
+        name: index.name || index.symbol,
+        symbol: index.symbol,
+        exchange: index.exchange,
+        ltp: index.ltp || 0,
+        change: index.change || 0,
+        changePercent: index.changePercent || 0,
+        open: index.open || 0,
+        high: index.high || 0,
+        low: index.low || 0,
+        previousClose: index.previousClose || 0,
+      })),
     };
 
     // Cache for 5 minutes
@@ -104,52 +74,9 @@ const getPopularStocks = async (limit = 10) => {
       }
     }
 
-    // Get most frequently traded stocks from orders/holdings
-    const popularSymbols = [
-      { symbol: 'RELIANCE', symbolToken: '2885', exchange: 'NSE', companyName: 'Reliance Industries Ltd' },
-      { symbol: 'TCS', symbolToken: '11536', exchange: 'NSE', companyName: 'Tata Consultancy Services Ltd' },
-      { symbol: 'HDFCBANK', symbolToken: '1333', exchange: 'NSE', companyName: 'HDFC Bank Ltd' },
-      { symbol: 'INFY', symbolToken: '1594', exchange: 'NSE', companyName: 'Infosys Ltd' },
-      { symbol: 'ICICIBANK', symbolToken: '4963', exchange: 'NSE', companyName: 'ICICI Bank Ltd' },
-      { symbol: 'HINDUNILVR', symbolToken: '1394', exchange: 'NSE', companyName: 'Hindustan Unilever Ltd' },
-      { symbol: 'ITC', symbolToken: '1660', exchange: 'NSE', companyName: 'ITC Ltd' },
-      { symbol: 'SBIN', symbolToken: '3045', exchange: 'NSE', companyName: 'State Bank of India' },
-      { symbol: 'BHARTIARTL', symbolToken: '10604', exchange: 'NSE', companyName: 'Bharti Airtel Ltd' },
-      { symbol: 'KOTAKBANK', symbolToken: '1922', exchange: 'NSE', companyName: 'Kotak Mahindra Bank Ltd' },
-    ].slice(0, limit);
-
-    // Fetch live prices in parallel
-    const popularStocks = await Promise.all(
-      popularSymbols.map(async (stock) => {
-        try {
-          const liveData = await marketService.getLTP(stock.exchange, stock.symbolToken, stock.symbol);
-          return {
-            symbol: stock.symbol,
-            symbolToken: stock.symbolToken,
-            exchange: stock.exchange,
-            companyName: stock.companyName,
-            ltp: liveData.ltp || 0,
-            change: liveData.change || 0,
-            changePercent: liveData.changePercent || 0,
-            volume: liveData.volume || 0,
-            high: liveData.high || 0,
-            low: liveData.low || 0,
-          };
-        } catch (error) {
-          logger.warn(`Failed to fetch price for ${stock.symbol}`, error);
-          return {
-            symbol: stock.symbol,
-            symbolToken: stock.symbolToken,
-            exchange: stock.exchange,
-            companyName: stock.companyName,
-            ltp: 0,
-            change: 0,
-            changePercent: 0,
-            error: 'Price unavailable',
-          };
-        }
-      }),
-    );
+    // Get popular stocks from market data service
+    const popularStocksData = marketDataService.getPopularStocks();
+    const popularStocks = popularStocksData.data.slice(0, limit);
 
     // Cache for 10 minutes
     if (redis) {
@@ -273,31 +200,27 @@ const getSectorPerformance = async () => {
       { name: 'Energy', symbol: 'NIFTYENERGY', token: '99926006' },
     ];
 
-    // Fetch sector data in parallel
-    const sectorData = await Promise.all(
-      sectorIndices.map(async (sector) => {
-        try {
-          const liveData = await marketService.getLTP('NSE', sector.token, sector.symbol);
-          return {
-            sector: sector.name,
-            symbol: sector.symbol,
-            ltp: liveData.ltp || 0,
-            change: liveData.change || 0,
-            changePercent: liveData.changePercent || 0,
-          };
-        } catch (error) {
-          logger.warn(`Failed to fetch ${sector.name} sector data`, error);
-          return {
-            sector: sector.name,
-            symbol: sector.symbol,
-            ltp: 0,
-            change: 0,
-            changePercent: 0,
-            error: 'Data unavailable',
-          };
-        }
-      }),
-    );
+    // Get indices and calculate sector performance
+    const indicesData = marketDataService.getIndices();
+    const sectorData = sectorIndices.map((sector) => {
+      const indexData = indicesData.data.find((idx) => idx.symbol === sector.symbol);
+      if (indexData) {
+        return {
+          sector: sector.name,
+          symbol: sector.symbol,
+          ltp: indexData.ltp || 0,
+          change: indexData.change || 0,
+          changePercent: indexData.changePercent || 0,
+        };
+      }
+      return {
+        sector: sector.name,
+        symbol: sector.symbol,
+        ltp: 0,
+        change: 0,
+        changePercent: 0,
+      };
+    });
 
     // Sort by performance (descending)
     const sortedSectors = sectorData.sort((a, b) => b.changePercent - a.changePercent);
@@ -356,42 +279,42 @@ const getPortfolioAnalytics = async (userId) => {
     let totalPnL = 0;
     let dayPnL = 0;
 
-    // Fetch live prices for all holdings
+    // Get current prices from market data service
     if (holdings && holdings.length > 0) {
-      const holdingsWithPrices = await Promise.all(
-        holdings.map(async (holding) => {
-          try {
-            const liveData = await marketService.getLTP(holding.exchange, holding.symbolToken, holding.symbol);
-            const currentPrice = liveData.ltp || holding.averagePrice;
-            const holdingValue = holding.quantity * currentPrice;
-            const invested = holding.quantity * holding.averagePrice;
-            const pnl = holdingValue - invested;
+      const holdingsWithPrices = holdings.map((holding) => {
+        try {
+          // Get current price from market data service
+          const priceData = marketDataService.getCurrentPrice(holding.symbol, holding.exchange);
+          const currentPrice = priceData.data.ltp || holding.averagePrice;
 
-            totalInvested += invested;
-            currentValue += holdingValue;
-            totalPnL += pnl;
+          const holdingValue = holding.quantity * currentPrice;
+          const invested = holding.quantity * holding.averagePrice;
+          const pnl = holdingValue - invested;
 
-            // Day's P&L calculation (simplified)
-            const previousClose = liveData.close || currentPrice;
-            const dayChange = (currentPrice - previousClose) * holding.quantity;
-            dayPnL += dayChange;
+          totalInvested += invested;
+          currentValue += holdingValue;
+          totalPnL += pnl;
 
-            return {
-              symbol: holding.symbol,
-              quantity: holding.quantity,
-              averagePrice: holding.averagePrice,
-              currentPrice,
-              invested,
-              currentValue: holdingValue,
-              pnl,
-              pnlPercent: ((pnl / invested) * 100).toFixed(2),
-            };
-          } catch (error) {
-            logger.warn(`Failed to fetch price for ${holding.symbol}`, error);
-            return null;
-          }
-        }),
-      );
+          // Day's P&L calculation
+          const previousClose = priceData.data.previousClose || currentPrice;
+          const dayChange = (currentPrice - previousClose) * holding.quantity;
+          dayPnL += dayChange;
+
+          return {
+            symbol: holding.symbol,
+            quantity: holding.quantity,
+            averagePrice: holding.averagePrice,
+            currentPrice,
+            invested,
+            currentValue: holdingValue,
+            pnl,
+            pnlPercent: ((pnl / invested) * 100).toFixed(2),
+          };
+        } catch (error) {
+          logger.warn(`Failed to fetch price for ${holding.symbol}`, error);
+          return null;
+        }
+      });
 
       // Filter out failed fetches
       const validHoldings = holdingsWithPrices.filter((h) => h !== null);
@@ -593,51 +516,6 @@ const getPlatformStatistics = async () => {
     throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to fetch platform statistics');
   }
 };
-
-/**
- * Helper: Get market status
- * @returns {Object}
- */
-function getMarketStatus() {
-  const now = new Date();
-  const day = now.getDay(); // 0 = Sunday, 6 = Saturday
-  const hours = now.getHours();
-  const minutes = now.getMinutes();
-  const time = hours * 60 + minutes; // Minutes since midnight
-
-  // Weekend check
-  if (day === 0 || day === 6) {
-    return {
-      status: 'CLOSED',
-      message: 'Market is closed (Weekend)',
-      nextOpen: 'Monday 09:15 AM',
-    };
-  }
-
-  // Market timings: 9:15 AM - 3:30 PM (555 minutes - 930 minutes)
-  const marketOpen = 9 * 60 + 15; // 555 minutes (9:15 AM)
-  const marketClose = 15 * 60 + 30; // 930 minutes (3:30 PM)
-
-  if (time < marketOpen) {
-    return {
-      status: 'PRE_OPEN',
-      message: 'Market opens at 09:15 AM',
-      nextOpen: 'Today 09:15 AM',
-    };
-  } else if (time >= marketOpen && time <= marketClose) {
-    return {
-      status: 'OPEN',
-      message: 'Market is open',
-      nextClose: 'Today 03:30 PM',
-    };
-  } else {
-    return {
-      status: 'CLOSED',
-      message: 'Market is closed',
-      nextOpen: 'Tomorrow 09:15 AM',
-    };
-  }
-}
 
 /**
  * Invalidate dashboard cache

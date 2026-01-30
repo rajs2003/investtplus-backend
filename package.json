@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "description": "Backend code for the seamless project",
   "main": "src/index.js",
+  "license": "MIT",
   "author": "TechServe <nexustechserve@gmail.com>",
   "scripts": {
     "start": "pm2 start ecosystem.config.json --no-daemon",
@@ -67,6 +68,7 @@
     "express-mongo-sanitize": "^2.2.0",
     "express-rate-limit": "^7.3.1",
     "helmet": "^7.1.0",
+    "http": "^0.0.1-security",
     "http-status": "^1.7.4",
     "joi": "^17.13.3",
     "kiteconnect": "^5.1.0",
@@ -86,6 +88,7 @@
     "react-leaflet": "^4.2.1",
     "redis": "^4.7.0",
     "smartapi-javascript": "^1.0.27",
+    "socket.io": "^4.8.3",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "twilio": "^5.2.2",

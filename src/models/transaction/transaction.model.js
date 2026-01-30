@@ -84,6 +84,11 @@ transactionSchema.index({ walletId: 1, createdAt: -1 });
 transactionSchema.index({ orderId: 1 });
 
 // Static method to get transaction summary
+/**
+ * @param {string} userId
+ * @param {string} [startDate]
+ * @param {string} [endDate]
+ */
 transactionSchema.statics.getTransactionSummary = async function (userId, startDate, endDate) {
   const match = { userId: new mongoose.Types.ObjectId(userId) };
 

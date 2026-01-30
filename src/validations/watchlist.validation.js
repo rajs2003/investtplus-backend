@@ -4,6 +4,7 @@ const { objectId } = require('./custom.validation');
 const createWatchlist = {
   body: Joi.object().keys({
     name: Joi.string().required().min(1).max(50).trim(),
+    description: Joi.string().max(200).trim().optional(),
     stocks: Joi.array()
       .items(
         Joi.object().keys({

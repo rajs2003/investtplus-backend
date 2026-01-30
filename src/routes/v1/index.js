@@ -7,14 +7,21 @@ const holdingRoute = require('./holdingRoutes/holding.route');
 const watchlistRoute = require('./watchlistRoutes');
 const dashboardRoute = require('./dashboardRoutes');
 const stockRoute = require('./stockRoutes/stock.route');
-const marketRoute = require('./marketRoutes/market.route');
-const websocketRoute = require('./websocketRoutes/websocket.route');
 const docsRoute = require('./docs.route');
 const config = require('../../config/config');
+const healthRoute = require('./health');
 
 const router = express.Router();
 
 const defaultRoutes = [
+  {
+    path: '/',
+    route: healthRoute,
+  },
+  {
+    path: '/health',
+    route: healthRoute,
+  },
   {
     path: '/auth',
     route: authRoute,
@@ -40,20 +47,12 @@ const defaultRoutes = [
     route: watchlistRoute,
   },
   {
-    path: '/dashboard',
-    route: dashboardRoute,
-  },
-  {
     path: '/stocks',
     route: stockRoute,
   },
   {
-    path: '/market',
-    route: marketRoute,
-  },
-  {
-    path: '/websocket',
-    route: websocketRoute,
+    path: '/dashboard',
+    route: dashboardRoute,
   },
 ];
 

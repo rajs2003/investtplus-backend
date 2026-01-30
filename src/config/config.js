@@ -7,7 +7,8 @@ const envVarsSchema = Joi.object()
   .keys({
     NODE_ENV: Joi.string().valid('production', 'development', 'test').required(),
     PORT: Joi.number().default(3000),
-    BASE_URL: Joi.string().default('http://localhost:5000'),
+    BASE_URL: Joi.string().default('http://localhost:3000'),
+    FRONTEND_URL: Joi.string().default('http://localhost:3000'),
     REDIS_HOST: Joi.string().description('Redis host url'),
     REDIS_PORT: Joi.number().description('Redis port'),
     MONGODB_URL: Joi.string().required().description('Mongo DB url'),
@@ -29,22 +30,6 @@ const envVarsSchema = Joi.object()
     TWILIO_AUTH_TOKEN: Joi.string().description('Auth Token from TWILIO'),
     TWILIO_PHONE_NUMBER: Joi.number().description('phone number from which call will take place'),
     TWILIO_VERIFY_SERVICE_SID: Joi.string().description('SID service details from TWILIO'),
-    // Market Data Provider Configuration
-    MARKET_DATA_PROVIDER: Joi.string()
-      .valid('angelone', 'kite', 'mock')
-      .default('angelone')
-      .description('Market data provider (angelone, kite, or mock for testing)'),
-    // AngelOne Configuration
-    ANGELONE_API_KEY: Joi.string().description('AngelOne SmartAPI Key'),
-    ANGELONE_CLIENT_CODE: Joi.string().description('AngelOne Client Code'),
-    ANGELONE_PASSWORD: Joi.string().description('AngelOne Password'),
-    ANGELONE_TOTP_SECRET: Joi.string().description('AngelOne TOTP Secret'),
-    // Kite Connect Configuration
-    KITE_API_KEY: Joi.string().description('Zerodha Kite Connect API Key'),
-    KITE_API_SECRET: Joi.string().description('Zerodha Kite Connect API Secret'),
-    KITE_USER_ID: Joi.string().description('Zerodha Kite User ID'),
-    KITE_PASSWORD: Joi.string().description('Zerodha Kite Password'),
-    KITE_TOTP_SECRET: Joi.string().description('Zerodha Kite TOTP Secret'),
   })
   .unknown();
 
@@ -58,6 +43,7 @@ module.exports = {
   env: envVars.NODE_ENV,
   port: envVars.PORT,
   base_url: envVars.BASE_URL,
+  frontend_url: envVars.FRONTEND_URL,
   mongoose: {
     url: envVars.MONGODB_URL + (envVars.NODE_ENV === 'test' ? '-test' : ''),
     // options: {
@@ -92,19 +78,5 @@ module.exports = {
     authToken: envVars.TWILIO_AUTH_TOKEN,
     phoneNumber: envVars.TWILIO_PHONE_NUMBER,
     verifyServiceSid: envVars.TWILIO_VERIFY_SERVICE_SID,
-  },
-  marketDataProvider: envVars.MARKET_DATA_PROVIDER || 'kite',
-  angelone: {
-    apiKey: envVars.ANGELONE_API_KEY,
-    clientCode: envVars.ANGELONE_CLIENT_CODE,
-    password: envVars.ANGELONE_PASSWORD,
-    totpSecret: envVars.ANGELONE_TOTP_SECRET,
-  },
-  kite: {
-    apiKey: envVars.KITE_API_KEY,
-    apiSecret: envVars.KITE_API_SECRET,
-    userId: envVars.KITE_USER_ID,
-    password: envVars.KITE_PASSWORD,
-    totpSecret: envVars.KITE_TOTP_SECRET,
   },
 };

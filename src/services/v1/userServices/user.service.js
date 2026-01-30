@@ -59,12 +59,21 @@ const getUserById = async (id) => {
 };
 
 /**
- * Get user by email
+ * Get user by phone number
  * @param {string} phone
  * @returns {Promise<User>}
  */
 const getUserByPhone = async (phone) => {
   return User.findOne({ phoneNumber: phone });
+};
+
+/**
+ * Get user by email
+ * @param {string} email
+ * @returns {Promise<User>}
+ */
+const getUserByEmail = async (email) => {
+  return User.findOne({ email });
 };
 
 /**
@@ -96,7 +105,7 @@ const deleteUserById = async (userId) => {
   if (!user) {
     throw new ApiError(httpStatus.NOT_FOUND, 'User not found');
   }
-  await user.remove();
+  await user.deleteOne();
   return user;
 };
 
@@ -105,6 +114,7 @@ module.exports = {
   queryUsers,
   getUserById,
   getUserByPhone,
+  getUserByEmail,
   updateUserById,
   deleteUserById,
 };

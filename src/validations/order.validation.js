@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 const Joi = require('joi');
 const { objectId } = require('./custom.validation');
 
@@ -15,10 +16,20 @@ const placeOrder = {
       'any.only': 'Exchange must be either NSE or BSE',
     }),
 
-    orderType: Joi.string().required().valid('intraday', 'delivery').messages({
-      'any.required': 'Order type is required',
-      'any.only': 'Order type must be either intraday or delivery',
-    }),
+    orderType: Joi.string()
+      .required()
+      .valid('intraday', 'delivery', 'MIS', 'mis')
+      .custom((value, helpers) => {
+        // Normalize MIS to intraday
+        if (value === 'MIS' || value === 'mis') {
+          return 'intraday';
+        }
+        return value.toLowerCase();
+      })
+      .messages({
+        'any.required': 'Order type is required',
+        'any.only': 'Order type must be either intraday, delivery, or MIS',
+      }),
 
     orderVariant: Joi.string().required().valid('market', 'limit', 'sl', 'slm').messages({
       'any.required': 'Order variant is required',
@@ -88,7 +99,14 @@ const cancelOrder = {
 const getOrders = {
   query: Joi.object().keys({
     status: Joi.string().valid('pending', 'executed', 'cancelled', 'rejected', 'expired', 'partial'),
-    orderType: Joi.string().valid('intraday', 'delivery'),
+    orderType: Joi.string()
+      .valid('intraday', 'delivery', 'MIS', 'mis')
+      .custom((value, helpers) => {
+        if (value === 'MIS' || value === 'mis') {
+          return 'intraday';
+        }
+        return value.toLowerCase();
+      }),
     transactionType: Joi.string().valid('buy', 'sell'),
     symbol: Joi.string().uppercase().trim(),
     startDate: Joi.date().iso(),
@@ -97,6 +115,7 @@ const getOrders = {
     }),
     page: Joi.number().integer().min(1).default(1),
     limit: Joi.number().integer().min(1).max(100).default(10),
+    sort: Joi.string().optional(),
   }),
 };
 

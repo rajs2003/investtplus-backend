@@ -5,6 +5,15 @@ const catchAsync = require('../../../../utils/catchAsync');
 const { walletService, transactionService } = require('../../../../services');
 
 /**
+ * create wallet for user
+ */
+
+const createWallet = catchAsync(async (req, res) => {
+  const wallet = await walletService.createWallet(req.user.id);
+  res.status(httpStatus.CREATED).send(wallet);
+});
+
+/**
  * Get wallet balance
  */
 const getWalletBalance = catchAsync(async (req, res) => {
@@ -96,6 +105,7 @@ const getTransaction = catchAsync(async (req, res) => {
 });
 
 module.exports = {
+  createWallet,
   getWalletBalance,
   getWalletDetails,
   addFunds,

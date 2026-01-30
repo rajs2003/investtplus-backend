@@ -1,13 +1,21 @@
 const Joi = require('joi');
 
-/**
- * Get wallet balance - no params needed
- */
-const getWalletBalance = {};
+const createWallet = {
+  body: Joi.object().keys({}),
+};
 
-/**
- * Get transaction history
- */
+const getWalletBalance = {
+  query: Joi.object().keys({}),
+  params: Joi.object().keys({}),
+  body: Joi.object().keys({}),
+};
+
+const getWalletDetails = {
+  query: Joi.object().keys({}),
+  params: Joi.object().keys({}),
+  body: Joi.object().keys({}),
+};
+
 const getTransactionHistory = {
   query: Joi.object().keys({
     type: Joi.string().valid('credit', 'debit'),
@@ -33,9 +41,6 @@ const getTransactionHistory = {
   }),
 };
 
-/**
- * Get transaction summary
- */
 const getTransactionSummary = {
   query: Joi.object().keys({
     startDate: Joi.date().iso(),
@@ -43,9 +48,6 @@ const getTransactionSummary = {
   }),
 };
 
-/**
- * Add funds (admin only)
- */
 const addFunds = {
   body: Joi.object().keys({
     userId: Joi.string().required(),
@@ -55,9 +57,6 @@ const addFunds = {
   }),
 };
 
-/**
- * Get transaction by ID
- */
 const getTransaction = {
   params: Joi.object().keys({
     transactionId: Joi.string().required(),
@@ -65,6 +64,8 @@ const getTransaction = {
 };
 
 module.exports = {
+  createWallet,
+  getWalletDetails,
   getWalletBalance,
   getTransactionHistory,
   getTransactionSummary,

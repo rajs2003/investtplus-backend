@@ -6,8 +6,8 @@ const createUser = {
     email: Joi.string().required().email(),
     password: Joi.string().required().custom(password),
     name: Joi.string().required(),
-    role: Joi.string().required().valid('superadmin', 'student', 'professor', 'staff', 'vendor'),
-    ldap: Joi.string().required().alphanum(),
+    role: Joi.string().required().valid('superadmin', 'admin', 'user'),
+    // ldap: Joi.string().required().alphanum(),
     phoneNumber: Joi.string()
       .required()
       .pattern(/^[0-9]{10}$/),
@@ -39,6 +39,9 @@ const updateUser = {
       email: Joi.string().email(),
       password: Joi.string().custom(password),
       name: Joi.string(),
+      phoneNumber: Joi.string().pattern(/^[0-9]{10}$/),
+      role: Joi.string().valid('superadmin', 'admin', 'user'),
+      isEmailVerified: Joi.boolean(),
     })
     .min(1),
 };
@@ -49,10 +52,22 @@ const deleteUser = {
   }),
 };
 
+const updateCurrentUser = {
+  body: Joi.object()
+    .keys({
+      email: Joi.string().email(),
+      // password: Joi.string().custom(password),
+      name: Joi.string(),
+      phoneNumber: Joi.string().pattern(/^[0-9]{10}$/),
+    })
+    .min(1),
+};
+
 module.exports = {
   createUser,
   getUsers,
   getUser,
   updateUser,
   deleteUser,
+  updateCurrentUser,
 };

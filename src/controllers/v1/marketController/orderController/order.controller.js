@@ -1,7 +1,8 @@
 const httpStatus = require('http-status');
 const catchAsync = require('../../../../utils/catchAsync');
 const pick = require('../../../../utils/pick');
-const { orderService, orderExecutionService } = require('../../../../services');
+const { orderService, orderExecutionService, marketDataService } = require('../../../../services');
+const ApiError = require('../../../../utils/ApiError');
 
 /**
  * Place a new order
@@ -10,6 +11,16 @@ const { orderService, orderExecutionService } = require('../../../../services');
 const placeOrder = catchAsync(async (req, res) => {
   const userId = req.user.id;
   const orderData = req.body;
+
+  // Check market status before placing order
+  const marketStatus = marketDataService.getMarketStatus();
+
+  // Return market status info with response
+  const marketInfo = {
+    status: marketStatus.status,
+    reason: marketStatus.reason,
+    isOpen: marketStatus.status === 'OPEN',
+  };
 
   const order = await orderService.placeOrder(userId, orderData);
 
@@ -21,6 +32,7 @@ const placeOrder = catchAsync(async (req, res) => {
       res.status(httpStatus.CREATED).json({
         success: true,
         message: 'Order placed and executed successfully',
+        market: marketInfo,
         order: {
           id: executedOrder.id,
           symbol: executedOrder.symbol,
@@ -42,6 +54,7 @@ const placeOrder = catchAsync(async (req, res) => {
       res.status(httpStatus.ACCEPTED).json({
         success: false,
         message: 'Order placed but execution failed',
+        market: marketInfo,
         order: {
           id: order.id,
           status: 'rejected',
@@ -54,6 +67,7 @@ const placeOrder = catchAsync(async (req, res) => {
     res.status(httpStatus.CREATED).json({
       success: true,
       message: 'Order placed successfully',
+      market: marketInfo,
       order: {
         id: order.id,
         symbol: order.symbol,
@@ -272,6 +286,95 @@ const executeOrder = catchAsync(async (req, res) => {
   });
 });
 
+/**
+ * Buy stock with current market price
+ * POST /v1/orders/buy
+ */
+const buyStock = catchAsync(async (req, res) => {
+  const userId = req.user.id;
+  const { symbol, quantity, orderType = 'MARKET', limitPrice, duration = 'DAY' } = req.body;
+
+  if (!symbol || !quantity) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Symbol and quantity are required');
+  }
+
+  if (quantity <= 0) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Quantity must be greater than 0');
+  }
+
+  // Get current market price from market data service
+  const priceData = marketDataService.getCurrentPrice(symbol, 'NSE');
+
+  if (!priceData.success) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Stock not found');
+  }
+
+  const currentPrice = priceData.data.ltp;
+  const orderPrice = orderType === 'LIMIT' && limitPrice ? limitPrice : currentPrice;
+
+  // Place order with market data
+  const orderData = {
+    symbol,
+    quantity,
+    orderType: orderType === 'LIMIT' ? 'LIMIT' : 'MARKET',
+    orderVariant: orderType === 'LIMIT' ? 'regular' : 'market',
+    transactionType: 'BUY',
+    limitPrice: orderPrice,
+    duration,
+    exchange: 'NSE',
+    product: 'MIS', // Margin Intraday Square-off
+  };
+
+  const order = await orderService.placeOrder(userId, orderData);
+
+  // For market orders, execute immediately with current price
+  if (orderType === 'MARKET') {
+    try {
+      const executedOrder = await orderExecutionService.executeMarketOrder(order.id, currentPrice);
+
+      return res.status(httpStatus.CREATED).json({
+        success: true,
+        message: 'Buy order placed and executed successfully',
+        data: {
+          id: executedOrder.id,
+          symbol: executedOrder.symbol,
+          quantity: executedOrder.quantity,
+          price: parseFloat(currentPrice.toFixed(2)),
+          totalAmount: executedOrder.orderValue,
+          charges: executedOrder.totalCharges,
+          netAmount: executedOrder.netAmount,
+          status: executedOrder.status,
+          executedAt: executedOrder.executedAt,
+        },
+      });
+    } catch (executionError) {
+      return res.status(httpStatus.ACCEPTED).json({
+        success: false,
+        message: 'Order placed but execution failed',
+        data: {
+          id: order.id,
+          status: 'rejected',
+          reason: executionError.message,
+        },
+      });
+    }
+  }
+
+  // For limit orders, return pending
+  res.status(httpStatus.CREATED).json({
+    success: true,
+    message: 'Limit order placed successfully',
+    data: {
+      id: order.id,
+      symbol: order.symbol,
+      quantity: order.quantity,
+      limitPrice: orderPrice,
+      status: order.status,
+      createdAt: order.createdAt,
+    },
+  });
+});
+
 module.exports = {
   placeOrder,
   cancelOrder,
@@ -280,4 +383,5 @@ module.exports = {
   getPendingOrders,
   getOrderHistory,
   executeOrder,
+  buyStock,
 };

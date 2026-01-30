@@ -1,0 +1,306 @@
+{
+  "stocks": [
+    {
+      "symbol": "RELIANCE",
+      "symbolToken": "2885",
+      "exchange": "NSE",
+      "companyName": "Reliance Industries Ltd",
+      "sector": "Energy",
+      "basePrice": 2650.5,
+      "lotSize": 1,
+      "tickSize": 0.05,
+      "isin": "INE002A01018"
+    },
+    {
+      "symbol": "TCS",
+      "symbolToken": "11536",
+      "exchange": "NSE",
+      "companyName": "Tata Consultancy Services Ltd",
+      "sector": "IT",
+      "basePrice": 3450.75,
+      "lotSize": 1,
+      "tickSize": 0.05,
+      "isin": "INE467B01029"
+    },
+    {
+      "symbol": "HDFCBANK",
+      "symbolToken": "1333",
+      "exchange": "NSE",
+      "companyName": "HDFC Bank Ltd",
+      "sector": "Bank",
+      "basePrice": 1650.25,
+      "lotSize": 1,
+      "tickSize": 0.05,
+      "isin": "INE040A01034"
+    },
+    {
+      "symbol": "INFY",
+      "symbolToken": "1594",
+      "exchange": "NSE",
+      "companyName": "Infosys Ltd",
+      "sector": "IT",
+      "basePrice": 1580.0,
+      "lotSize": 1,
+      "tickSize": 0.05,
+      "isin": "INE009A01021"
+    },
+    {
+      "symbol": "ICICIBANK",
+      "symbolToken": "4963",
+      "exchange": "NSE",
+      "companyName": "ICICI Bank Ltd",
+      "sector": "Bank",
+      "basePrice": 985.5,
+      "lotSize": 1,
+      "tickSize": 0.05,
+      "isin": "INE090A01021"
+    },
+    {
+      "symbol": "HINDUNILVR",
+      "symbolToken": "1394",
+      "exchange": "NSE",
+      "companyName": "Hindustan Unilever Ltd",
+      "sector": "FMCG",
+      "basePrice": 2450.0,
+      "lotSize": 1,
+      "tickSize": 0.05,
+      "isin": "INE030A01027"
+    },
+    {
+      "symbol": "ITC",
+      "symbolToken": "1660",
+      "exchange": "NSE",
+      "companyName": "ITC Ltd",
+      "sector": "FMCG",
+      "basePrice": 425.75,
+      "lotSize": 1,
+      "tickSize": 0.05,
+      "isin": "INE154A01025"
+    },
+    {
+      "symbol": "SBIN",
+      "symbolToken": "3045",
+      "exchange": "NSE",
+      "companyName": "State Bank of India",
+      "sector": "Bank",
+      "basePrice": 620.5,
+      "lotSize": 1,
+      "tickSize": 0.05,
+      "isin": "INE062A01020"
+    },
+    {
+      "symbol": "BHARTIARTL",
+      "symbolToken": "10604",
+      "exchange": "NSE",
+      "companyName": "Bharti Airtel Ltd",
+      "sector": "Telecom",
+      "basePrice": 1120.25,
+      "lotSize": 1,
+      "tickSize": 0.05,
+      "isin": "INE397D01024"
+    },
+    {
+      "symbol": "KOTAKBANK",
+      "symbolToken": "1922",
+      "exchange": "NSE",
+      "companyName": "Kotak Mahindra Bank Ltd",
+      "sector": "Bank",
+      "basePrice": 1850.0,
+      "lotSize": 1,
+      "tickSize": 0.05,
+      "isin": "INE237A01028"
+    },
+    {
+      "symbol": "WIPRO",
+      "symbolToken": "3787",
+      "exchange": "NSE",
+      "companyName": "Wipro Ltd",
+      "sector": "IT",
+      "basePrice": 445.3,
+      "lotSize": 1,
+      "tickSize": 0.05,
+      "isin": "INE075A01022"
+    },
+    {
+      "symbol": "AXISBANK",
+      "symbolToken": "5900",
+      "exchange": "NSE",
+      "companyName": "Axis Bank Ltd",
+      "sector": "Bank",
+      "basePrice": 1075.5,
+      "lotSize": 1,
+      "tickSize": 0.05,
+      "isin": "INE238A01034"
+    },
+    {
+      "symbol": "LT",
+      "symbolToken": "11483",
+      "exchange": "NSE",
+      "companyName": "Larsen & Toubro Ltd",
+      "sector": "Infrastructure",
+      "basePrice": 3425.75,
+      "lotSize": 1,
+      "tickSize": 0.05,
+      "isin": "INE018A01030"
+    },
+    {
+      "symbol": "TATAMOTORS",
+      "symbolToken": "3456",
+      "exchange": "NSE",
+      "companyName": "Tata Motors Ltd",
+      "sector": "Auto",
+      "basePrice": 785.25,
+      "lotSize": 1,
+      "tickSize": 0.05,
+      "isin": "INE155A01022"
+    },
+    {
+      "symbol": "MARUTI",
+      "symbolToken": "10999",
+      "exchange": "NSE",
+      "companyName": "Maruti Suzuki India Ltd",
+      "sector": "Auto",
+      "basePrice": 10250.5,
+      "lotSize": 1,
+      "tickSize": 0.05,
+      "isin": "INE585B01010"
+    },
+    {
+      "symbol": "ASIANPAINT",
+      "symbolToken": "3718",
+      "exchange": "NSE",
+      "companyName": "Asian Paints Ltd",
+      "sector": "Consumer Goods",
+      "basePrice": 2850.0,
+      "lotSize": 1,
+      "tickSize": 0.05,
+      "isin": "INE021A01026"
+    },
+    {
+      "symbol": "SUNPHARMA",
+      "symbolToken": "3351",
+      "exchange": "NSE",
+      "companyName": "Sun Pharmaceutical Industries Ltd",
+      "sector": "Pharma",
+      "basePrice": 1485.75,
+      "lotSize": 1,
+      "tickSize": 0.05,
+      "isin": "INE044A01036"
+    },
+    {
+      "symbol": "TITAN",
+      "symbolToken": "3506",
+      "exchange": "NSE",
+      "companyName": "Titan Company Ltd",
+      "sector": "Consumer Goods",
+      "basePrice": 3250.25,
+      "lotSize": 1,
+      "tickSize": 0.05,
+      "isin": "INE280A01028"
+    },
+    {
+      "symbol": "ADANIPORTS",
+      "symbolToken": "15083",
+      "exchange": "NSE",
+      "companyName": "Adani Ports and Special Economic Zone Ltd",
+      "sector": "Infrastructure",
+      "basePrice": 1185.5,
+      "lotSize": 1,
+      "tickSize": 0.05,
+      "isin": "INE742F01042"
+    },
+    {
+      "symbol": "POWERGRID",
+      "symbolToken": "14977",
+      "exchange": "NSE",
+      "companyName": "Power Grid Corporation of India Ltd",
+      "sector": "Energy",
+      "basePrice": 245.75,
+      "lotSize": 1,
+      "tickSize": 0.05,
+      "isin": "INE752E01010"
+    }
+  ],
+  "indices": [
+    {
+      "symbol": "NIFTY50",
+      "symbolToken": "99926000",
+      "exchange": "NSE",
+      "name": "NIFTY 50",
+      "basePrice": 22500.0,
+      "tickSize": 0.05
+    },
+    {
+      "symbol": "BANKNIFTY",
+      "symbolToken": "99926009",
+      "exchange": "NSE",
+      "name": "NIFTY BANK",
+      "basePrice": 48500.0,
+      "tickSize": 0.05
+    },
+    {
+      "symbol": "SENSEX",
+      "symbolToken": "99919000",
+      "exchange": "BSE",
+      "name": "SENSEX",
+      "basePrice": 74500.0,
+      "tickSize": 0.05
+    },
+    {
+      "symbol": "NIFTYIT",
+      "symbolToken": "99926012",
+      "exchange": "NSE",
+      "name": "NIFTY IT",
+      "basePrice": 32000.0,
+      "tickSize": 0.05
+    },
+    {
+      "symbol": "NIFTYPHARMA",
+      "symbolToken": "99926020",
+      "exchange": "NSE",
+      "name": "NIFTY PHARMA",
+      "basePrice": 15000.0,
+      "tickSize": 0.05
+    },
+    {
+      "symbol": "NIFTYAUTO",
+      "symbolToken": "99926003",
+      "exchange": "NSE",
+      "name": "NIFTY AUTO",
+      "basePrice": 16500.0,
+      "tickSize": 0.05
+    },
+    {
+      "symbol": "NIFTYFMCG",
+      "symbolToken": "99926008",
+      "exchange": "NSE",
+      "name": "NIFTY FMCG",
+      "basePrice": 42000.0,
+      "tickSize": 0.05
+    },
+    {
+      "symbol": "NIFTYMETAL",
+      "symbolToken": "99926015",
+      "exchange": "NSE",
+      "name": "NIFTY METAL",
+      "basePrice": 8500.0,
+      "tickSize": 0.05
+    },
+    {
+      "symbol": "NIFTYREALTY",
+      "symbolToken": "99926021",
+      "exchange": "NSE",
+      "name": "NIFTY REALTY",
+      "basePrice": 4500.0,
+      "tickSize": 0.05
+    },
+    {
+      "symbol": "NIFTYENERGY",
+      "symbolToken": "99926006",
+      "exchange": "NSE",
+      "name": "NIFTY ENERGY",
+      "basePrice": 28000.0,
+      "tickSize": 0.05
+    }
+  ]
+}
