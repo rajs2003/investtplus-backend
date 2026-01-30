@@ -9,6 +9,7 @@ const envVarsSchema = Joi.object()
     PORT: Joi.number().default(3000),
     BASE_URL: Joi.string().default('http://localhost:3000'),
     FRONTEND_URL: Joi.string().default('http://localhost:3000'),
+    REDIS_URL: Joi.string().description('Redis connection URL'),
     REDIS_HOST: Joi.string().description('Redis host url'),
     REDIS_PORT: Joi.number().description('Redis port'),
     MONGODB_URL: Joi.string().required().description('Mongo DB url'),
@@ -52,6 +53,7 @@ module.exports = {
     // },
   },
   redis: {
+    url: envVars.REDIS_URL,
     host: envVars.REDIS_HOST,
     port: envVars.REDIS_PORT,
   },
