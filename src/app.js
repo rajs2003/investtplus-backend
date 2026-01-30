@@ -20,8 +20,8 @@ const path = require('path');
 
 const app = express();
 
-// Start background jobs for order execution
-if (config.env !== 'test') {
+// Start background jobs for order execution - ONLY if not on serverless (Vercel)
+if (config.env !== 'test' && !process.env.VERCEL) {
   // Start limit/SL order monitoring
   startOrderMonitoring()
     .then(() => {
