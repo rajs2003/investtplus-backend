@@ -2,43 +2,26 @@
 const httpStatus = require('http-status');
 const { Order } = require('../../../../models');
 const ApiError = require('../../../../utils/ApiError');
-const fundManager = require('../walletServices/fundManager.service');
-const holdingService = require('../holdingServices/holding.service');
 const orderHelpers = require('./orderHelpers');
 const marketConfig = require('../../../../config/market.config');
 const { marketDataService } = require('../../mockMarket');
+const limitOrderManager = require('./limitOrderManager.service');
 
 /**
  * ========================================
- * ORDER PLACEMENT SERVICE
+ * ORDER PLACEMENT SERVICE - SIMPLIFIED
  * ========================================
  *
- * Handles order placement with proper validations
+ * Complex fund management and holdings logic removed.
+ * This is a clean slate for implementing your own order flow.
  *
- * KEY FEATURES:
+ * Current flow:
+ * 1. Validate order data
+ * 2. Create order in database
+ * 3. For limit orders: Store in Redis
+ * 4. Return order
  *
- * 1. INTRADAY SHORT SELLING SUPPORT
- *    - Users can sell stocks without holdings in intraday
- *    - Margin/leverage balance is checked and locked
- *    - Both BUY and SELL require margin for intraday orders
- *
- * 2. DELIVERY ORDER TRADITIONAL FLOW
- *    - BUY requires 100% funds
- *    - SELL requires holdings validation
- *
- * 3. VALIDATION FLOW:
- *    - Market status check
- *    - Order data validation
- *    - Quantity limits check
- *    - Price validation
- *    - Margin/fund requirements check
- *    - Holdings check (for delivery sell only)
- *
- * 4. FUND MANAGEMENT:
- *    - INTRADAY (BUY/SELL): Margin locked (e.g., 20%)
- *    - DELIVERY BUY: Full amount locked (100%)
- *    - DELIVERY SELL: No funds locked (holdings validated)
- *
+ * Fund reservation and holdings updates are commented out.
  * ========================================
  */
 
@@ -131,61 +114,11 @@ const placeOrder = async (userId, orderData) => {
   const marginRequired = marketConfig.margins[normalizedOrderType]?.required || 1.0;
   const requiredFunds = charges.orderValue * marginRequired + charges.totalCharges;
 
-  // Step 9: Fund validation and reservation based on order type and transaction type
-  let reservedFunds = null;
-
-  // For INTRADAY orders - support short selling (both buy and sell check leverage balance)
-  if (normalizedOrderType === 'intraday') {
-    // INTRADAY: Both BUY and SELL require margin/leverage balance check
-    // This allows short selling - user can sell first without holdings
-    try {
-      reservedFunds = await fundManager.reserveFunds(userId, requiredFunds);
-      console.log(
-        `✅ Intraday ${transactionType.toUpperCase()} order - Margin reserved: ₹${requiredFunds.toFixed(2)} (${(marginRequired * 100).toFixed(0)}% of ₹${charges.orderValue.toFixed(2)})`,
-      );
-    } catch (error) {
-      throw new ApiError(
-        httpStatus.BAD_REQUEST,
-        `Insufficient funds for intraday ${transactionType} order. Required: ₹${requiredFunds.toFixed(2)} (including ${(marginRequired * 100).toFixed(0)}% margin). ${error.message}`,
-      );
-    }
-  }
-  // For DELIVERY orders - traditional flow
-  else if (normalizedOrderType === 'delivery') {
-    if (transactionType === 'buy') {
-      // DELIVERY BUY: Reserve full amount (100% margin)
-      try {
-        reservedFunds = await fundManager.reserveFunds(userId, requiredFunds);
-        console.log(`✅ Delivery BUY order - Funds reserved: ₹${requiredFunds.toFixed(2)}`);
-      } catch (error) {
-        throw new ApiError(
-          httpStatus.BAD_REQUEST,
-          `Insufficient funds for delivery buy order. Required: ₹${requiredFunds.toFixed(2)}. ${error.message}`,
-        );
-      }
-    } else {
-      // DELIVERY SELL: Must have holdings, no funds reservation needed
-      const holdingValidation = await holdingService.validateHoldingForSell(
-        userId,
-        symbol,
-        exchange || 'NSE',
-        quantity,
-        orderType,
-      );
-
-      if (!holdingValidation.hasHolding) {
-        throw new ApiError(
-          httpStatus.BAD_REQUEST,
-          holdingValidation.message ||
-            `Insufficient holdings for ${symbol.toUpperCase()}. Cannot sell delivery without holdings.`,
-        );
-      }
-
-      console.log(
-        `✅ Delivery SELL validation passed: ${symbol} - Available: ${holdingValidation.available}, Selling: ${quantity}`,
-      );
-    }
-  }
+  // Step 9: Fund validation and reservation - COMMENTED OUT FOR FRESH IMPLEMENTATION
+  // TODO: Implement fund validation and holdings check here
+  console.log(
+    `⚠️ Fund validation skipped - Required: ₹${requiredFunds.toFixed(2)} for ${normalizedOrderType} ${transactionType}`,
+  );
 
   // Step 11: Create order with all market data
   try {
@@ -226,29 +159,21 @@ const placeOrder = async (userId, orderData) => {
       `✅ Order placed successfully: ${normalizedOrderType.toUpperCase()} ${transactionType.toUpperCase()} ${quantity} ${symbol} @ ₹${estimatedPrice.toFixed(2)}`,
     );
 
-    // Step 12: Queue limit/SL orders for background processing
+    // Step 12: Store limit/SL orders in Redis for real-time execution on price changes
     if (orderVariant === 'limit' || orderVariant === 'sl' || orderVariant === 'slm') {
       try {
-        const { queueOrderExecution } = require('../../../jobs/orderExecutionJob');
-        await queueOrderExecution(order._id, orderVariant);
-        console.log(`📋 Order ${order._id} queued for background processing (${orderVariant})`);
-      } catch (queueError) {
+        await limitOrderManager.addPendingOrder(order);
+        console.log(`📋 Order ${order._id} stored in Redis for real-time price-based execution (${orderVariant})`);
+      } catch (redisError) {
         // Log error but don't fail order placement
-        console.error('Failed to queue order for processing:', queueError);
+        console.error('Failed to store order in Redis:', redisError);
       }
     }
 
     return order;
   } catch (error) {
-    // Rollback: Release reserved funds if order creation fails
-    if (reservedFunds) {
-      try {
-        await fundManager.releaseFunds(userId, requiredFunds, null, 'Order creation failed');
-        console.log(`🔄 Rollback: Released ₹${requiredFunds.toFixed(2)} due to order creation failure`);
-      } catch (rollbackError) {
-        console.error('Failed to release funds during rollback:', rollbackError);
-      }
-    }
+    // Order creation failed
+    console.error(`❌ Order creation failed: ${error.message}`);
     throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Failed to place order: ${error.message}`);
   }
 };
@@ -277,12 +202,21 @@ const cancelOrder = async (orderId, userId, reason = 'User cancelled') => {
     throw new ApiError(httpStatus.BAD_REQUEST, `Cannot cancel order with status: ${order.status}`);
   }
 
-  // Step 4: Release reserved funds for buy orders
-  if (order.transactionType === 'buy') {
-    await fundManager.releaseFunds(userId, order.netAmount, orderId, reason);
+  // Step 4: Fund release - COMMENTED OUT FOR FRESH IMPLEMENTATION
+  // TODO: Implement fund release logic here
+  console.log(`⚠️ Fund release skipped for order ${orderId}`);
+
+  // Step 5: Remove from Redis if it's a limit/SL order
+  if (order.orderVariant === 'limit' || order.orderVariant === 'sl' || order.orderVariant === 'slm') {
+    try {
+      await limitOrderManager.removePendingOrder(orderId.toString(), order.symbol, order.exchange);
+      console.log(`🗑️ Removed cancelled order ${orderId} from Redis`);
+    } catch (redisError) {
+      console.error('Failed to remove order from Redis:', redisError);
+    }
   }
 
-  // Step 5: Update order status
+  // Step 6: Update order status
   order.markAsCancelled(reason);
   await order.save();
 

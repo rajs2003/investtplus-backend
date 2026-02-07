@@ -14,32 +14,12 @@ const { authLimiter } = require('./middlewares/rateLimiter');
 const { v1Routes } = require('./routes');
 const { errorConverter, errorHandler } = require('./middlewares/error');
 const ApiError = require('./utils/ApiError');
-const { startOrderMonitoring, scheduleAutoSquareOff } = require('./jobs/orderExecutionJob');
-const logger = require('./config/logger');
+// const logger = require('./config/logger');
 const path = require('path');
 
 const app = express();
 
-// Start background jobs for order execution - ONLY if not on serverless (Vercel)
-if (config.env !== 'test' && !process.env.VERCEL) {
-  // Start limit/SL order monitoring
-  startOrderMonitoring()
-    .then(() => {
-      logger.info('Order monitoring background job started successfully');
-    })
-    .catch((err) => {
-      logger.error('Failed to start order monitoring job', { error: err.message });
-    });
-
-  // Schedule intraday auto square-off
-  scheduleAutoSquareOff()
-    .then(() => {
-      logger.info('Intraday auto square-off job scheduled successfully');
-    })
-    .catch((err) => {
-      logger.error('Failed to schedule auto square-off job', { error: err.message });
-    });
-}
+// No background jobs needed - using event-driven limit order execution
 
 if (config.env !== 'test') {
   app.use(morgan.successHandler);
@@ -79,7 +59,12 @@ app.use(mongoSanitize());
 app.use(compression());
 
 // enable cors
-const allowedOrigins = ['http://localhost:3000', 'http://localhost:3002', 'http://127.0.0.1:3000'];
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3002',
+  'http://127.0.0.1:3000',
+  'https://investtplus-simulation-app.onrender.com',
+];
 app.use(
   cors({
     origin: allowedOrigins,
