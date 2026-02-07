@@ -6,6 +6,7 @@ const connectDB = require('./db/mongoose');
 const http = require('http');
 const { Server } = require('socket.io');
 const { marketWebSocketService } = require('./services/v1/mockMarket');
+const { limitOrderManager } = require('./services/v1/marketServices/orderServices');
 
 let server;
 let io;
@@ -33,6 +34,20 @@ connectDB().then(() => {
   // Initialize Market WebSocket Service
   marketWebSocketService.initializeWebSocket(io);
   logger.info('Market WebSocket service initialized');
+
+  // Sync pending orders to Redis on startup
+  setTimeout(async () => {
+    try {
+      const syncResult = await limitOrderManager.syncPendingOrdersToRedis();
+      if (syncResult.success) {
+        logger.info(`✅ Synced ${syncResult.count} pending orders to Redis`);
+      } else {
+        logger.warn('⚠️ Failed to sync pending orders to Redis');
+      }
+    } catch (error) {
+      logger.error('❌ Error syncing pending orders:', error);
+    }
+  }, 2000); // Wait 2 seconds for Redis to connect
 
   // socket.io connections (for other purposes)
   io.on('connection', (socket) => {

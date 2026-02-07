@@ -48,6 +48,7 @@ const placeOrder = catchAsync(async (req, res) => {
           executedAt: executedOrder.executedAt,
           createdAt: executedOrder.createdAt,
         },
+        executedOrder,
       });
     } catch (executionError) {
       // Order placed but execution failed

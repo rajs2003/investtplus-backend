@@ -1,11 +1,13 @@
 /**
  * Mock Market WebSocket Service
  * Real-time market data streaming using Socket.IO
+ * Integrated with Limit Order Manager for real-time order execution
  */
 
 const marketDataService = require('./marketData.service');
 const marketConfig = require('../../../config/market.config');
 const logger = require('../../../config/logger');
+const limitOrderManager = require('../marketServices/orderServices/limitOrderManager.service');
 
 // Store active subscriptions
 const subscriptions = new Map();
@@ -18,10 +20,10 @@ const initializeWebSocket = (io) => {
 
   marketNamespace.on('connection', (socket) => {
     const clientIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
-    logger.info(`✅ Client connected to market stream`);
-    logger.info(`   Socket ID: ${socket.id}`);
-    logger.info(`   Client IP: ${clientIp}`);
-    logger.info(`   Timestamp: ${new Date().toISOString()}`);
+    logger.info(`Client connected to market stream`);
+    logger.info(`Socket ID: ${socket.id}`);
+    logger.info(`Client IP: ${clientIp}`);
+    logger.info(`Timestamp: ${new Date().toISOString()}`);
 
     // Initialize client subscriptions
     subscriptions.set(socket.id, new Set());
@@ -181,6 +183,13 @@ const startMarketDataStream = (namespace) => {
 
       try {
         const priceData = marketDataService.getCurrentPrice(symbol, exchange);
+        const currentPrice = priceData.data.ltp;
+
+        // Check and execute pending limit orders for this price change
+        // This runs asynchronously without blocking price updates
+        limitOrderManager
+          .processPriceChange(symbol, exchange, currentPrice)
+          .catch((err) => logger.error(`Limit order processing failed for ${symbol}:`, err));
 
         // Emit to all clients subscribed to this symbol
         subscriptions.forEach((clientSubs, socketId) => {
@@ -239,6 +248,54 @@ const startMarketDataStream = (namespace) => {
       marketStatus: marketDataService.getMarketStatus(),
     });
   }, marketConfig.webSocket.heartbeatInterval);
+
+  // 🎯 INDEPENDENT LIMIT ORDER PROCESSOR
+  // Process pending limit orders even without subscriptions
+  // This ensures orders execute regardless of WebSocket client connections
+  setInterval(async () => {
+    try {
+      // Only run during market hours
+      if (!marketDataService.isMarketOpen()) {
+        return;
+      }
+
+      // Get all pending orders from Redis
+      const allPendingOrders = await limitOrderManager.getAllPendingOrders();
+
+      if (allPendingOrders.length === 0) {
+        return; // No orders to process
+      }
+
+      // Group orders by symbol to minimize price fetches
+      const ordersBySymbol = {};
+      allPendingOrders.forEach((order) => {
+        const key = `${order.exchange}:${order.symbol}`;
+        if (!ordersBySymbol[key]) {
+          ordersBySymbol[key] = [];
+        }
+        ordersBySymbol[key].push(order);
+      });
+
+      // Process each symbol's orders
+      for (const key in ordersBySymbol) {
+        const [exchange, symbol] = key.split(':');
+
+        try {
+          const priceData = marketDataService.getCurrentPrice(symbol, exchange);
+          const currentPrice = priceData.data.ltp;
+
+          // Process all orders for this symbol
+          await limitOrderManager.processPriceChange(symbol, exchange, currentPrice);
+        } catch (error) {
+          logger.warn(`Failed to process limit orders for ${symbol}:`, error.message);
+        }
+      }
+    } catch (error) {
+      logger.error('Limit order processor error:', error);
+    }
+  }, 1000); // Check every 1 second (can be adjusted)
+
+  logger.info('✅ Independent limit order processor started (1s interval)');
 };
 
 /**

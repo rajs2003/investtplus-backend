@@ -1,55 +1,23 @@
 const httpStatus = require('http-status');
 const { Order } = require('../../../../models');
 const ApiError = require('../../../../utils/ApiError');
-const fundManager = require('../walletServices/fundManager.service');
-const holdingService = require('../holdingServices/holding.service');
-const orderHelpers = require('./orderHelpers');
-const marketConfig = require('../../../../config/market.config');
 const { marketDataService } = require('../../mockMarket');
 
 /**
  * ========================================
- * ORDER EXECUTION SERVICE
+ * ORDER EXECUTION SERVICE - SIMPLIFIED
  * ========================================
  *
- * Handles execution of all order types and combinations
+ * This is a simplified version for fresh implementation.
+ * Complex execution logic, fund manager, and holdings have been removed.
  *
- * ORDER TYPE & TRANSACTION TYPE COMBINATIONS:
- *
- * 1. DELIVERY BUY
- *    - User buys stocks to hold long-term
- *    - Requires: 100% funds (full order value + charges)
- *    - Result: Stocks added to holdings
- *
- * 2. DELIVERY SELL
- *    - User sells stocks from holdings
- *    - Requires: Holdings must exist
- *    - Result: Stocks removed from holdings, proceeds credited
- *
- * 3. INTRADAY BUY
- *    - User buys with leverage (must square off same day)
- *    - Requires: Margin amount (e.g., 20% of order value)
- *    - Result: Intraday position created, must be closed
- *
- * 4. INTRADAY SELL (SHORT SELLING)
- *    - User sells without holdings (must buy back same day)
- *    - Requires: Margin amount (e.g., 20% of order value)
- *    - Result: Short position created, must be covered
- *
- * ORDER VARIANTS:
- * - MARKET: Execute immediately at current market price
- * - LIMIT: Execute only when price reaches specified limit
- * - SL (Stop Loss): Execute when price crosses trigger price
- * - SLM (Stop Loss Market): Execute at market price when trigger is hit
- *
- * FIFO PROCESSING:
- * - All pending orders are processed in the order they were created
- * - Ensures fair execution for all users
+ * For now, market orders are simply marked as executed.
+ * You can implement your custom execution logic here.
  * ========================================
  */
 
 /**
- * Get current market price for a symbol from market data service
+ * Get current market price for a symbol
  * @param {string} symbol - Stock symbol
  * @param {string} exchange - Exchange (NSE/BSE)
  * @returns {Promise<number>} Current market price
@@ -67,502 +35,58 @@ const getCurrentMarketPrice = async (symbol, exchange = 'NSE') => {
 };
 
 /**
- * Execute a market order
+ * Execute a market order - SIMPLIFIED VERSION
+ * For now, just marks the order as executed without complex logic
+ *
  * @param {ObjectId} orderId - Order ID
  * @returns {Promise<Order>}
  */
 const executeMarketOrder = async (orderId) => {
-  // Step 1: Get order
   const order = await Order.findById(orderId);
   if (!order) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Order not found');
   }
 
-  // Step 2: Validate order status
   if (order.status !== 'pending') {
     throw new ApiError(httpStatus.BAD_REQUEST, `Order is already ${order.status}`);
   }
 
-  // Step 3: Check if market is open
-  const marketStatus = marketDataService.getMarketStatus();
-  if (marketStatus.status === 'CLOSED') {
-    order.markAsRejected(`Market is closed. ${marketStatus.reason}`);
-    await order.save();
-
-    // Release funds if buy order
-    if (order.transactionType === 'buy') {
-      await fundManager.releaseFunds(order.userId, order.netAmount, orderId, 'Market closed');
-    }
-
-    throw new ApiError(httpStatus.BAD_REQUEST, `Cannot execute order. Market is closed. ${marketStatus.reason}`);
-  }
-
-  // Step 4: Get current market price
+  // Get current market price
   const marketPrice = await getCurrentMarketPrice(order.symbol, order.exchange);
 
-  // Step 5: Apply slippage for market orders
-  const slippage = marketConfig.orderSettings.marketOrderSlippage;
-  const executionPrice = order.transactionType === 'buy' ? marketPrice * (1 + slippage) : marketPrice * (1 - slippage);
+  // Simple execution - mark as executed at market price
+  order.markAsExecuted(marketPrice, order.quantity);
+  await order.save();
 
-  // Step 6: Calculate actual charges at execution price
-  const actualCharges = orderHelpers.calculateOrderCharges(
-    {
-      orderType: order.orderType,
-      transactionType: order.transactionType,
-      quantity: order.quantity,
-      price: executionPrice,
-    },
-    order.exchange,
-  );
+  console.log(`✅ Order ${orderId} executed at ₹${marketPrice}`);
 
-  try {
-    // Step 7: Execute based on order type and transaction type combination
-    // DELIVERY BUY: Full payment, add to holdings
-    // DELIVERY SELL: Credit proceeds, reduce holdings
-    // INTRADAY BUY: Settle margin, add to holdings
-    // INTRADAY SELL: Settle margin (short selling), add short position to holdings
-
-    if (order.orderType === 'delivery') {
-      // ============= DELIVERY ORDERS =============
-      if (order.transactionType === 'buy') {
-        // DELIVERY BUY: User buys stocks to hold long-term
-        // Payment: Full order value + charges
-        // Holdings: Add quantity to user's holdings
-        await fundManager.settleOrderPayment(
-          order.userId,
-          order.netAmount, // Reserved amount
-          actualCharges.netAmount, // Actual amount to pay
-          orderId,
-          {
-            reason: 'stock_buy',
-            description: `DELIVERY BUY ${order.quantity} shares of ${order.symbol} at ₹${executionPrice.toFixed(2)}`,
-          },
-        );
-
-        console.log(
-          `✅ DELIVERY BUY executed: ${order.quantity} ${order.symbol} @ ₹${executionPrice.toFixed(2)} - Total: ₹${actualCharges.netAmount.toFixed(2)}`,
-        );
-      } else {
-        // DELIVERY SELL: User sells stocks from holdings
-        // Payment: Credit sale proceeds
-        // Holdings: Reduce quantity from user's holdings
-        const proceeds = actualCharges.netAmount;
-        const isProfit = proceeds > 0;
-
-        await fundManager.creditSaleProceeds(order.userId, proceeds, orderId, {
-          isProfit,
-          description: `DELIVERY SELL ${order.quantity} shares of ${order.symbol} at ₹${executionPrice.toFixed(2)}`,
-        });
-
-        console.log(
-          `✅ DELIVERY SELL executed: ${order.quantity} ${order.symbol} @ ₹${executionPrice.toFixed(2)} - Proceeds: ₹${proceeds.toFixed(2)}`,
-        );
-      }
-    } else if (order.orderType.toLowerCase() === 'intraday' || order.orderType.toLowerCase() === 'mis') {
-      // ============= INTRADAY ORDERS (WITH SHORT SELLING SUPPORT) =============
-      if (order.transactionType === 'buy') {
-        // INTRADAY BUY: User buys with leverage (must square off same day)
-        // Payment: Margin amount (e.g., 20% of order value)
-        // Holdings: Add as intraday position (must be squared off)
-        await fundManager.settleOrderPayment(
-          order.userId,
-          order.netAmount, // Reserved margin amount
-          actualCharges.netAmount, // Actual margin to pay
-          orderId,
-          {
-            reason: 'stock_buy',
-            description: `INTRADAY BUY ${order.quantity} shares of ${order.symbol} at ₹${executionPrice.toFixed(2)} (Margin Trade)`,
-          },
-        );
-
-        console.log(
-          `✅ INTRADAY BUY executed: ${order.quantity} ${order.symbol} @ ₹${executionPrice.toFixed(2)} - Margin: ₹${actualCharges.netAmount.toFixed(2)}`,
-        );
-      } else {
-        // INTRADAY SELL (SHORT SELLING): User sells without holdings (must buy back same day)
-        // Payment: Margin locked for short position
-        // Holdings: Add as short position (negative quantity or marked as short)
-        // Note: Margin was already reserved during order placement
-        await fundManager.settleOrderPayment(
-          order.userId,
-          order.netAmount, // Reserved margin amount
-          actualCharges.netAmount, // Actual margin to lock
-          orderId,
-          {
-            reason: 'short_sell',
-            description: `INTRADAY SHORT SELL ${order.quantity} shares of ${order.symbol} at ₹${executionPrice.toFixed(2)} (Margin Trade)`,
-          },
-        );
-
-        console.log(
-          `✅ INTRADAY SHORT SELL executed: ${order.quantity} ${order.symbol} @ ₹${executionPrice.toFixed(2)} - Margin: ₹${actualCharges.netAmount.toFixed(2)}`,
-        );
-      }
-    }
-
-    // Log price impact if significant
-    const priceImpact = orderHelpers.calculatePriceImpact(order.price, executionPrice);
-    if (Math.abs(priceImpact) > 1) {
-      console.log(`⚠️  Price impact for order ${orderId}: ${priceImpact.toFixed(2)}%`);
-    }
-
-    // Step 8: Update order with execution details
-    order.markAsExecuted(executionPrice, order.quantity);
-    order.orderValue = actualCharges.orderValue;
-    order.totalCharges = actualCharges.totalCharges;
-    order.netAmount = actualCharges.netAmount;
-    await order.save();
-
-    // Step 9: Update holdings
-    try {
-      if (order.transactionType === 'buy') {
-        await holdingService.createOrUpdateHolding(order);
-      } else {
-        await holdingService.processSellOrder(order);
-      }
-    } catch (holdingError) {
-      console.error('Failed to update holding:', holdingError.message);
-      // Don't fail the order execution for holding errors
-    }
-
-    return order;
-  } catch (error) {
-    console.error('Order execution failed:', error);
-
-    // Mark order as rejected
-    order.markAsRejected(error.message);
-    await order.save();
-
-    // For buy orders, try to release the locked funds
-    if (order.transactionType === 'buy') {
-      try {
-        await fundManager.releaseFunds(order.userId, order.netAmount, orderId, 'Order execution failed');
-      } catch (releaseError) {
-        console.error('Failed to release funds after execution failure:', releaseError);
-      }
-    }
-
-    throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Order execution failed: ${error.message}`);
-  }
+  return order;
 };
 
 /**
- * Execute a limit order
+ * Execute a limit order - PLACEHOLDER
+ * Implement your custom limit order execution logic here
+ *
  * @param {ObjectId} orderId - Order ID
  * @returns {Promise<Order|null>} Order if executed, null if conditions not met
  */
 const executeLimitOrder = async (orderId) => {
-  // Step 1: Get order
-  const order = await Order.findById(orderId);
-  if (!order) {
-    throw new ApiError(httpStatus.NOT_FOUND, 'Order not found');
-  }
-
-  // Step 2: Validate order status
-  if (order.status !== 'pending') {
-    return null; // Order is not pending
-  }
-
-  // Step 3: Check if market is open
-  if (!marketDataService.isMarketOpen()) {
-    return null; // Don't execute when market is closed
-  }
-
-  // Step 4: Get current market price
-  const marketPrice = await getCurrentMarketPrice(order.symbol, order.exchange);
-
-  // Step 5: Check execution conditions using helper
-  const executionCheck = orderHelpers.checkExecutionCondition(order, marketPrice);
-
-  if (!executionCheck.canExecute) {
-    return null; // Conditions not met
-  }
-
-  const executionPrice = executionCheck.executionPrice;
-
-  // Step 6: Calculate actual charges at execution price
-  const actualCharges = orderHelpers.calculateOrderCharges(
-    {
-      orderType: order.orderType,
-      transactionType: order.transactionType,
-      quantity: order.quantity,
-      price: executionPrice,
-    },
-    order.exchange,
-  );
-
-  try {
-    // Step 7: Execute payment based on order type and transaction type combination
-    // Same logic as market orders but for limit orders
-
-    if (order.orderType === 'delivery') {
-      // ============= DELIVERY LIMIT ORDERS =============
-      if (order.transactionType === 'buy') {
-        // DELIVERY BUY LIMIT: Buy at or below specified price
-        await fundManager.settleOrderPayment(order.userId, order.netAmount, actualCharges.netAmount, orderId, {
-          reason: 'stock_buy',
-          description: `DELIVERY BUY LIMIT ${order.quantity} shares of ${order.symbol} at ₹${executionPrice.toFixed(2)}`,
-        });
-
-        console.log(
-          `✅ DELIVERY BUY LIMIT executed: ${order.quantity} ${order.symbol} @ ₹${executionPrice.toFixed(2)} (Limit: ₹${order.price.toFixed(2)})`,
-        );
-      } else {
-        // DELIVERY SELL LIMIT: Sell at or above specified price
-        const proceeds = actualCharges.netAmount;
-
-        await fundManager.creditSaleProceeds(order.userId, proceeds, orderId, {
-          isProfit: true,
-          description: `DELIVERY SELL LIMIT ${order.quantity} shares of ${order.symbol} at ₹${executionPrice.toFixed(2)}`,
-        });
-
-        console.log(
-          `✅ DELIVERY SELL LIMIT executed: ${order.quantity} ${order.symbol} @ ₹${executionPrice.toFixed(2)} (Limit: ₹${order.price.toFixed(2)})`,
-        );
-      }
-    } else if (order.orderType.toLowerCase() === 'intraday' || order.orderType.toLowerCase() === 'mis') {
-      // ============= INTRADAY LIMIT ORDERS =============
-      if (order.transactionType === 'buy') {
-        // INTRADAY BUY LIMIT: Buy with leverage at or below limit price
-        await fundManager.settleOrderPayment(order.userId, order.netAmount, actualCharges.netAmount, orderId, {
-          reason: 'stock_buy',
-          description: `INTRADAY BUY LIMIT ${order.quantity} shares of ${order.symbol} at ₹${executionPrice.toFixed(2)} (Margin Trade)`,
-        });
-
-        console.log(
-          `✅ INTRADAY BUY LIMIT executed: ${order.quantity} ${order.symbol} @ ₹${executionPrice.toFixed(2)} (Limit: ₹${order.price.toFixed(2)})`,
-        );
-      } else {
-        // INTRADAY SHORT SELL LIMIT: Short sell at or above limit price
-        await fundManager.settleOrderPayment(order.userId, order.netAmount, actualCharges.netAmount, orderId, {
-          reason: 'short_sell',
-          description: `INTRADAY SHORT SELL LIMIT ${order.quantity} shares of ${order.symbol} at ₹${executionPrice.toFixed(2)} (Margin Trade)`,
-        });
-
-        console.log(
-          `✅ INTRADAY SHORT SELL LIMIT executed: ${order.quantity} ${order.symbol} @ ₹${executionPrice.toFixed(2)} (Limit: ₹${order.price.toFixed(2)})`,
-        );
-      }
-    }
-
-    // Step 8: Update order with execution details
-    order.markAsExecuted(executionPrice, order.quantity);
-    order.orderValue = actualCharges.orderValue;
-    order.totalCharges = actualCharges.totalCharges;
-    order.netAmount = actualCharges.netAmount;
-    await order.save();
-
-    // Step 8: Update holdings
-    try {
-      if (order.transactionType === 'buy') {
-        await holdingService.createOrUpdateHolding(order);
-      } else {
-        await holdingService.processSellOrder(order);
-      }
-    } catch (holdingError) {
-      console.error('Failed to update holding:', holdingError.message);
-    }
-
-    return order;
-  } catch (error) {
-    console.error('Limit order execution failed:', error);
-
-    // Mark order as rejected
-    order.markAsRejected(error.message);
-    await order.save();
-
-    // Release funds for buy orders
-    if (order.transactionType === 'buy') {
-      try {
-        await fundManager.releaseFunds(order.userId, order.netAmount, orderId, 'Limit order execution failed');
-      } catch (releaseError) {
-        console.error('Failed to release funds:', releaseError);
-      }
-    }
-
-    throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Limit order execution failed: ${error.message}`);
-  }
+  // TODO: Implement limit order execution logic
+  console.log(`⚠️ Limit order execution not implemented yet: ${orderId}`);
+  return null; // Not implemented yet
 };
 
 /**
- * Execute a stop loss order
+ * Execute a stop loss order - PLACEHOLDER
+ * Implement your custom stop loss execution logic here
+ *
  * @param {ObjectId} orderId - Order ID
  * @returns {Promise<Order|null>} Order if executed, null if conditions not met
  */
 const executeStopLossOrder = async (orderId) => {
-  // Step 1: Get order
-  const order = await Order.findById(orderId);
-  if (!order) {
-    throw new ApiError(httpStatus.NOT_FOUND, 'Order not found');
-  }
-
-  // Step 2: Validate order status
-  if (order.status !== 'pending') {
-    return null;
-  }
-
-  // Step 3: Get current market price
-  const marketPrice = await getCurrentMarketPrice(order.symbol, order.exchange);
-
-  // Step 4: Check execution conditions using helper
-  const executionCheck = orderHelpers.checkExecutionCondition(order, marketPrice);
-
-  if (!executionCheck.canExecute) {
-    return null; // Trigger not hit
-  }
-
-  const executionPrice = executionCheck.executionPrice;
-
-  // Step 5: Calculate actual charges at execution price
-  const actualCharges = orderHelpers.calculateOrderCharges({
-    orderType: order.orderType,
-    transactionType: order.transactionType,
-    quantity: order.quantity,
-    price: executionPrice,
-  });
-
-  try {
-    // Step 6: Execute payment based on order type and transaction type combination
-    // Stop loss orders for both delivery and intraday
-
-    if (order.orderType === 'delivery') {
-      // ============= DELIVERY STOP LOSS ORDERS =============
-      if (order.transactionType === 'buy') {
-        // DELIVERY BUY SL: Buy when price goes above trigger (typically not common)
-        await fundManager.settleOrderPayment(order.userId, order.netAmount, actualCharges.netAmount, orderId, {
-          reason: 'stock_buy',
-          description: `DELIVERY BUY SL ${order.quantity} shares of ${order.symbol} at ₹${executionPrice.toLocaleString('en-IN')} (SL Triggered @ ₹${order.triggerPrice.toLocaleString('en-IN')})`,
-        });
-
-        console.log(
-          `✅ DELIVERY BUY SL executed: ${order.quantity} ${order.symbol} @ ₹${executionPrice.toFixed(2)} (Trigger: ₹${order.triggerPrice.toFixed(2)})`,
-        );
-      } else {
-        // DELIVERY SELL SL: Sell when price goes below trigger (stop loss to limit losses)
-        const proceeds = actualCharges.netAmount;
-
-        await fundManager.creditSaleProceeds(order.userId, proceeds, orderId, {
-          isProfit: false, // Stop loss typically indicates a loss scenario
-          description: `DELIVERY SELL SL ${order.quantity} shares of ${order.symbol} at ₹${executionPrice.toLocaleString('en-IN')} (SL Triggered @ ₹${order.triggerPrice.toLocaleString('en-IN')})`,
-        });
-
-        console.log(
-          `✅ DELIVERY SELL SL executed: ${order.quantity} ${order.symbol} @ ₹${executionPrice.toFixed(2)} (Trigger: ₹${order.triggerPrice.toFixed(2)})`,
-        );
-      }
-    } else if (order.orderType.toLowerCase() === 'intraday' || order.orderType.toLowerCase() === 'mis') {
-      // ============= INTRADAY STOP LOSS ORDERS =============
-      if (order.transactionType === 'buy') {
-        // INTRADAY BUY SL: Buy with leverage when price crosses trigger
-        await fundManager.settleOrderPayment(order.userId, order.netAmount, actualCharges.netAmount, orderId, {
-          reason: 'stock_buy',
-          description: `INTRADAY BUY SL ${order.quantity} shares of ${order.symbol} at ₹${executionPrice.toLocaleString('en-IN')} (SL Triggered @ ₹${order.triggerPrice.toLocaleString('en-IN')})`,
-        });
-
-        console.log(
-          `✅ INTRADAY BUY SL executed: ${order.quantity} ${order.symbol} @ ₹${executionPrice.toFixed(2)} (Trigger: ₹${order.triggerPrice.toFixed(2)})`,
-        );
-      } else {
-        // INTRADAY SHORT SELL SL: Short sell when price crosses trigger (cover short position)
-        await fundManager.settleOrderPayment(order.userId, order.netAmount, actualCharges.netAmount, orderId, {
-          reason: 'short_sell',
-          description: `INTRADAY SHORT SELL SL ${order.quantity} shares of ${order.symbol} at ₹${executionPrice.toLocaleString('en-IN')} (SL Triggered @ ₹${order.triggerPrice.toLocaleString('en-IN')})`,
-        });
-
-        console.log(
-          `✅ INTRADAY SHORT SELL SL executed: ${order.quantity} ${order.symbol} @ ₹${executionPrice.toFixed(2)} (Trigger: ₹${order.triggerPrice.toFixed(2)})`,
-        );
-      }
-    }
-
-    // Step 7: Update order with execution details
-    order.markAsExecuted(executionPrice, order.quantity);
-    order.orderValue = actualCharges.orderValue;
-    order.totalCharges = actualCharges.totalCharges;
-    order.netAmount = actualCharges.netAmount;
-    await order.save();
-
-    // Step 8: Update holdings
-    try {
-      if (order.transactionType === 'buy') {
-        await holdingService.createOrUpdateHolding(order);
-      } else {
-        await holdingService.processSellOrder(order);
-      }
-    } catch (holdingError) {
-      console.error('Failed to update holding:', holdingError.message);
-    }
-
-    return order;
-  } catch (error) {
-    console.error('Stop loss order execution failed:', error);
-
-    order.markAsRejected(error.message);
-    await order.save();
-
-    // Release funds for buy orders
-    if (order.transactionType === 'buy') {
-      try {
-        await fundManager.releaseFunds(order.userId, order.netAmount, orderId, 'Stop loss execution failed');
-      } catch (releaseError) {
-        console.error('Failed to release funds:', releaseError);
-      }
-    }
-
-    throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Stop loss execution failed: ${error.message}`);
-  }
-};
-
-/**
- * Process all pending limit orders (for background job)
- * @returns {Promise<Array>} Executed orders
- */
-const processLimitOrders = async () => {
-  const pendingLimitOrders = await Order.find({
-    status: 'pending',
-    orderVariant: 'limit',
-  });
-
-  const executedOrders = [];
-
-  for (const order of pendingLimitOrders) {
-    try {
-      const executed = await executeLimitOrder(order.id);
-      if (executed) {
-        executedOrders.push(executed);
-      }
-    } catch (error) {
-      console.error(`Failed to execute limit order ${order.id}:`, error);
-    }
-  }
-
-  return executedOrders;
-};
-
-/**
- * Process all pending stop loss orders (for background job)
- * @returns {Promise<Array>} Executed orders
- */
-const processStopLossOrders = async () => {
-  const pendingSLOrders = await Order.find({
-    status: 'pending',
-    orderVariant: { $in: ['sl', 'slm'] },
-  });
-
-  const executedOrders = [];
-
-  for (const order of pendingSLOrders) {
-    try {
-      const executed = await executeStopLossOrder(order.id);
-      if (executed) {
-        executedOrders.push(executed);
-      }
-    } catch (error) {
-      console.error(`Failed to execute stop loss order ${order.id}:`, error);
-    }
-  }
-
-  return executedOrders;
+  // TODO: Implement stop loss order execution logic
+  console.log(`⚠️ Stop loss order execution not implemented yet: ${orderId}`);
+  return null; // Not implemented yet
 };
 
 module.exports = {
@@ -570,6 +94,4 @@ module.exports = {
   executeMarketOrder,
   executeLimitOrder,
   executeStopLossOrder,
-  processLimitOrders,
-  processStopLossOrders,
 };
