@@ -40,23 +40,15 @@ module.exports = {
 
   // Price Generation Settings
   priceSimulation: {
-    // Volatility settings (how much price can change)
     volatility: {
-      low: 0.002, // 0.2% change
-      medium: 0.005, // 0.5% change
+      low: 0.003, // 0.3% change
+      medium: 0.002, // 0.2% change
       high: 0.01, // 1% change
     },
 
-    // Update interval for price changes (in milliseconds)
     updateInterval: 1000, // 1 second
-
-    // Maximum price change per update (percentage)
     maxPriceChangePerTick: 0.002, // 0.2%
-
-    // Probability of price movement (0-1)
-    movementProbability: 0.7, // 70% chance of price change
-
-    // Circuit limits (percentage from previous close)
+    movementProbability: 0.2, // 20% chance of price change
     circuitLimits: {
       upper: 0.2, // 20% upper circuit
       lower: 0.2, // 20% lower circuit
@@ -75,22 +67,11 @@ module.exports = {
 
   // Order Configuration
   orderSettings: {
-    // Order types allowed
     allowedOrderTypes: ['MARKET', 'LIMIT', 'SL', 'SL-M'],
-
-    // Product types
     allowedProductTypes: ['DELIVERY', 'INTRADAY', 'MIS'],
-
-    // Minimum order quantity
     minQuantity: 1,
-
-    // Maximum order quantity per order
     maxQuantity: 10000,
-
-    // Order validity
     allowedValidity: ['DAY', 'IOC'],
-
-    // Slippage for market orders (percentage)
     marketOrderSlippage: 0.001, // 0.1%
   },
 
@@ -110,7 +91,6 @@ module.exports = {
     },
 
     stt: {
-      // Securities Transaction Tax
       delivery: {
         buy: 0,
         sell: 0.001, // 0.1% on sell
@@ -133,7 +113,6 @@ module.exports = {
     stampDuty: 0.00015, // 0.015% on buy side
   },
 
-  // Margin Requirements
   margins: {
     delivery: {
       required: 1.0, // 100% margin required
@@ -149,23 +128,23 @@ module.exports = {
   // Auto Square-off Settings
   autoSquareOff: {
     intraday: {
-      time: '15:20', // Auto square-off time for intraday
+      time: '23:26', // Auto square-off time for intraday (HH:mm format)
       enabled: true,
+    },
+  },
+
+  // Position Settings
+  positions: {
+    delivery: {
+      displayDuration: 24, // Hours - Show delivery positions for 24 hours before converting to holdings
     },
   },
 
   // WebSocket Configuration
   webSocket: {
-    // Update frequency for streaming data (milliseconds)
     tickInterval: 1000, // 1 second
-
-    // Heartbeat interval
     heartbeatInterval: 30000, // 30 seconds
-
-    // Maximum subscriptions per connection
     maxSubscriptions: 100,
-
-    // Reconnection settings
     reconnection: {
       enabled: true,
       maxAttempts: 5,
@@ -189,7 +168,6 @@ module.exports = {
 
   // Performance Settings
   performance: {
-    // Cache settings
     cache: {
       priceDataTTL: 1000, // 1 second
       marketDepthTTL: 500, // 500ms

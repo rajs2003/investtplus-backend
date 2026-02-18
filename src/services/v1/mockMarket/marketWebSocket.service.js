@@ -9,6 +9,14 @@ const marketConfig = require('../../../config/market.config');
 const logger = require('../../../config/logger');
 const limitOrderManager = require('../marketServices/orderServices/limitOrderManager.service');
 
+let cachedPositionRiskService = null;
+const getPositionRiskService = () => {
+  if (!cachedPositionRiskService) {
+    cachedPositionRiskService = require('../marketServices/positionServices').positionRisk;
+  }
+  return cachedPositionRiskService;
+};
+
 // Store active subscriptions
 const subscriptions = new Map();
 
@@ -131,10 +139,10 @@ const initializeWebSocket = (io) => {
 
       subscriptions.delete(socket.id);
 
-      logger.info(`❌ Client disconnected from market stream`);
-      logger.info(`   Socket ID: ${socket.id}`);
-      logger.info(`   Was subscribed to: ${subCount} symbols`);
-      logger.info(`   Active clients remaining: ${remainingClients}`);
+      logger.info(`Client disconnected from market stream`);
+      logger.info(`Socket ID: ${socket.id}`);
+      logger.info(`Was subscribed to: ${subCount} symbols`);
+      logger.info(`Active clients remaining: ${remainingClients}`);
     });
 
     // Send initial market status
@@ -157,9 +165,9 @@ const initializeWebSocket = (io) => {
  * Stream market data to subscribed clients
  */
 const startMarketDataStream = (namespace) => {
-  logger.info('📊 Starting market data streaming service');
-  logger.info(`   Tick interval: ${marketConfig.webSocket.tickInterval}ms`);
-  logger.info(`   Heartbeat interval: ${marketConfig.webSocket.heartbeatInterval}ms`);
+  logger.info('Starting market data streaming service');
+  logger.info(`Tick interval: ${marketConfig.webSocket.tickInterval}ms`);
+  logger.info(`Heartbeat interval: ${marketConfig.webSocket.heartbeatInterval}ms`);
 
   setInterval(() => {
     // Check if market is open
@@ -190,6 +198,11 @@ const startMarketDataStream = (namespace) => {
         limitOrderManager
           .processPriceChange(symbol, exchange, currentPrice)
           .catch((err) => logger.error(`Limit order processing failed for ${symbol}:`, err));
+
+        // Intraday risk check for margin-based auto square-off
+        getPositionRiskService()
+          .processIntradayRiskForPrice(symbol, exchange, currentPrice)
+          .catch((err) => logger.error(`Intraday risk processing failed for ${symbol}:`, err));
 
         // Emit to all clients subscribed to this symbol
         subscriptions.forEach((clientSubs, socketId) => {
@@ -249,7 +262,7 @@ const startMarketDataStream = (namespace) => {
     });
   }, marketConfig.webSocket.heartbeatInterval);
 
-  // 🎯 INDEPENDENT LIMIT ORDER PROCESSOR
+  // INDEPENDENT LIMIT ORDER PROCESSOR
   // Process pending limit orders even without subscriptions
   // This ensures orders execute regardless of WebSocket client connections
   setInterval(async () => {
@@ -295,7 +308,26 @@ const startMarketDataStream = (namespace) => {
     }
   }, 1000); // Check every 1 second (can be adjusted)
 
-  logger.info('✅ Independent limit order processor started (1s interval)');
+  logger.info('Independent limit order processor started (1s interval)');
+
+  // INTRADAY MARGIN RISK PROCESSOR
+  // Ensures auto square-off can happen even without active symbol subscriptions
+  setInterval(async () => {
+    try {
+      if (!marketDataService.isMarketOpen()) {
+        return;
+      }
+
+      await getPositionRiskService().processAllIntradayRisk((symbol, exchange) => {
+        const priceData = marketDataService.getCurrentPrice(symbol, exchange);
+        return priceData.data.ltp;
+      });
+    } catch (error) {
+      logger.error('Intraday margin risk processor error:', error);
+    }
+  }, 1000);
+
+  logger.info('Intraday margin risk processor started (1s interval)');
 };
 
 /**

@@ -7,9 +7,11 @@ const http = require('http');
 const { Server } = require('socket.io');
 const { marketWebSocketService } = require('./services/v1/mockMarket');
 const { limitOrderManager } = require('./services/v1/marketServices/orderServices');
+const { initializeScheduledJobs, stopScheduledJobs } = require('./jobs/marketSettlement.job');
 
 let server;
 let io;
+let scheduledJobs;
 
 connectDB().then(() => {
   // Create HTTP server
@@ -35,17 +37,21 @@ connectDB().then(() => {
   marketWebSocketService.initializeWebSocket(io);
   logger.info('Market WebSocket service initialized');
 
+  // Initialize scheduled jobs for market settlement
+  scheduledJobs = initializeScheduledJobs();
+  logger.info('Market settlement jobs initialized');
+
   // Sync pending orders to Redis on startup
   setTimeout(async () => {
     try {
       const syncResult = await limitOrderManager.syncPendingOrdersToRedis();
       if (syncResult.success) {
-        logger.info(`✅ Synced ${syncResult.count} pending orders to Redis`);
+        logger.info(`Synced ${syncResult.count} pending orders to Redis`);
       } else {
-        logger.warn('⚠️ Failed to sync pending orders to Redis');
+        logger.warn('Failed to sync pending orders to Redis');
       }
     } catch (error) {
-      logger.error('❌ Error syncing pending orders:', error);
+      logger.error('Error syncing pending orders:', error);
     }
   }, 2000); // Wait 2 seconds for Redis to connect
 
@@ -61,4 +67,42 @@ connectDB().then(() => {
   server.listen(config.port, () => {
     logger.info(`Listening to port ${config.port}`);
   });
+});
+
+// Graceful shutdown handlers
+const exitHandler = () => {
+  if (server) {
+    server.close(() => {
+      logger.info('Server closed');
+
+      // Stop all scheduled jobs
+      if (scheduledJobs) {
+        stopScheduledJobs(scheduledJobs);
+      }
+
+      process.exit(1);
+    });
+  } else {
+    process.exit(1);
+  }
+};
+
+const unexpectedErrorHandler = (error) => {
+  logger.error(error);
+  exitHandler();
+};
+
+process.on('uncaughtException', unexpectedErrorHandler);
+process.on('unhandledRejection', unexpectedErrorHandler);
+
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM received');
+  if (server) {
+    server.close();
+  }
+
+  // Stop all scheduled jobs
+  if (scheduledJobs) {
+    stopScheduledJobs(scheduledJobs);
+  }
 });
