@@ -11,11 +11,23 @@ const router = express.Router();
 
 router.get('/', auth('all'), validate(walletValidation.getWalletBalance), walletController.getWalletBalance);
 
-router.post('/create', validate(walletValidation.createWallet), auth('user'), walletController.createWallet);
+router.post('/create', auth('all'), validate(walletValidation.createWallet), auth('user'), walletController.createWallet);
 
-router.get('/details', validate(walletValidation.getWalletDetails), auth('user'), walletController.getWalletDetails);
+router.get(
+  '/details',
+  auth('all'),
+  validate(walletValidation.getWalletDetails),
+  auth('user'),
+  walletController.getWalletDetails,
+);
 
-router.get('/balance', validate(walletValidation.getWalletBalance), auth('user'), walletController.getWalletBalance);
+router.get(
+  '/balance',
+  auth('all'),
+  validate(walletValidation.getWalletBalance),
+  auth('user'),
+  walletController.getWalletBalance,
+);
 
 router.get(
   '/transactions',

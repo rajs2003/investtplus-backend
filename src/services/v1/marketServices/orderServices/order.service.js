@@ -6,6 +6,9 @@ const orderHelpers = require('./orderHelpers');
 const marketConfig = require('../../../../config/market.config');
 const { marketDataService } = require('../../mockMarket');
 const limitOrderManager = require('./limitOrderManager.service');
+const fundManager = require('../walletServices/fundManager.service');
+const orderExecutionService = require('./orderExecution.service');
+const { Holding } = require('../../../../models');
 
 /**
  * ========================================
@@ -34,11 +37,10 @@ const limitOrderManager = require('./limitOrderManager.service');
 const placeOrder = async (userId, orderData) => {
   const { symbol, exchange, orderType, orderVariant, transactionType, quantity, price, triggerPrice } = orderData;
 
-  // Normalize orderType (convert MIS to intraday)
   const normalizedOrderType = orderType === 'MIS' || orderType === 'mis' ? 'intraday' : orderType.toLowerCase();
 
-  // Step 1: Check market status
   const marketStatus = marketDataService.getMarketStatus();
+
   if (marketStatus.status === 'CLOSED') {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
@@ -46,10 +48,8 @@ const placeOrder = async (userId, orderData) => {
     );
   }
 
-  // Step 2: Validate order data against config
   orderHelpers.validateOrderData({ ...orderData, orderType: normalizedOrderType });
 
-  // Step 3: Validate order type and product type from config
   if (!marketConfig.orderSettings.allowedOrderTypes.includes(orderVariant.toUpperCase())) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
@@ -64,7 +64,6 @@ const placeOrder = async (userId, orderData) => {
     );
   }
 
-  // Step 4: Validate quantity limits from config
   if (quantity < marketConfig.orderSettings.minQuantity) {
     throw new ApiError(httpStatus.BAD_REQUEST, `Minimum order quantity is ${marketConfig.orderSettings.minQuantity}`);
   }
@@ -76,7 +75,6 @@ const placeOrder = async (userId, orderData) => {
     );
   }
 
-  // Step 5: Get current market price from market data service
   let currentPriceData;
   try {
     currentPriceData = marketDataService.getCurrentPrice(symbol.toUpperCase(), exchange || 'NSE');
@@ -88,7 +86,6 @@ const placeOrder = async (userId, orderData) => {
   const symbolToken = currentPriceData.data.symbolToken;
   const companyName = currentPriceData.data.companyName;
 
-  // Step 6: Apply market order slippage if applicable
   let estimatedPrice = orderHelpers.getEstimatedExecutionPrice(orderData, marketPrice);
   if (orderVariant === 'market') {
     const slippage = marketConfig.orderSettings.marketOrderSlippage;
@@ -99,7 +96,6 @@ const placeOrder = async (userId, orderData) => {
     }
   }
 
-  // Step 7: Calculate charges using config-based calculation
   const charges = orderHelpers.calculateOrderCharges(
     {
       orderType: normalizedOrderType,
@@ -110,19 +106,60 @@ const placeOrder = async (userId, orderData) => {
     exchange || 'NSE',
   );
 
-  // Step 8: Check margin requirements from config
   const marginRequired = marketConfig.margins[normalizedOrderType]?.required || 1.0;
   const requiredFunds = charges.orderValue * marginRequired + charges.totalCharges;
 
-  // Step 9: Fund validation and reservation - COMMENTED OUT FOR FRESH IMPLEMENTATION
-  // TODO: Implement fund validation and holdings check here
-  console.log(
-    `⚠️ Fund validation skipped - Required: ₹${requiredFunds.toFixed(2)} for ${normalizedOrderType} ${transactionType}`,
-  );
+  // Step 9: Fund validation and holdings check
+  if (normalizedOrderType === 'delivery' && transactionType === 'sell') {
+    // Check if user has holdings for delivery sell
+    const holding = await Holding.findOne({
+      userId,
+      symbol: symbol.toUpperCase(),
+      exchange: exchange || 'NSE',
+      holdingType: 'delivery',
+    });
+
+    if (!holding) {
+      throw new ApiError(httpStatus.BAD_REQUEST, `No holdings found for ${symbol}. Cannot place delivery sell order.`);
+    }
+
+    if (holding.quantity < quantity) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        `Insufficient holdings. Available: ${holding.quantity}, Requested: ${quantity}`,
+      );
+    }
+  } else if (normalizedOrderType === 'delivery' && transactionType === 'buy') {
+    // For delivery buy, deduct funds immediately (not reserve)
+    try {
+      await fundManager.deductFunds(userId, requiredFunds, null, {
+        reason: 'stock_buy',
+        description: `Funds deducted for delivery buy order: ${quantity} ${symbol} @ Rs ${estimatedPrice.toFixed(2)}`,
+      });
+      console.log(`Funds deducted for delivery buy: Rs ${requiredFunds.toFixed(2)}`);
+    } catch (fundError) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        `Insufficient funds. ${fundError.message}. Required: Rs ${requiredFunds.toFixed(2)}`,
+      );
+    }
+  } else if (normalizedOrderType === 'intraday') {
+    // For intraday orders, reserve funds (lock but don't deduct)
+    try {
+      await fundManager.reserveFunds(userId, requiredFunds, null);
+      console.log(`Funds reserved for intraday order: Rs ${requiredFunds.toFixed(2)}`);
+    } catch (fundError) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        `Insufficient funds for reservation. ${fundError.message}. Required: Rs ${requiredFunds.toFixed(2)}`,
+      );
+    }
+  }
 
   // Step 11: Create order with all market data
+  let order;
   try {
-    const order = await Order.create({
+    order = await Order.create({
       userId,
       symbol: symbol.toUpperCase(),
       exchange: exchange || 'NSE',
@@ -144,6 +181,7 @@ const placeOrder = async (userId, orderData) => {
       stampDuty: charges.stampDuty,
       totalCharges: charges.totalCharges,
       netAmount: charges.netAmount,
+      reservedAmount: normalizedOrderType === 'intraday' ? requiredFunds : charges.netAmount, // Store reserved amount for intraday
       description: orderHelpers.formatOrderDescription({
         transactionType,
         quantity,
@@ -156,25 +194,63 @@ const placeOrder = async (userId, orderData) => {
     });
 
     console.log(
-      `✅ Order placed successfully: ${normalizedOrderType.toUpperCase()} ${transactionType.toUpperCase()} ${quantity} ${symbol} @ ₹${estimatedPrice.toFixed(2)}`,
+      `Order created: ${normalizedOrderType.toUpperCase()} ${transactionType.toUpperCase()} ${quantity} ${symbol} @ Rs ${estimatedPrice.toFixed(2)}`,
     );
+  } catch (error) {
+    // Order creation failed - refund/release funds
+    console.error(`Order creation failed: ${error.message}`);
 
-    // Step 12: Store limit/SL orders in Redis for real-time execution on price changes
-    if (orderVariant === 'limit' || orderVariant === 'sl' || orderVariant === 'slm') {
-      try {
-        await limitOrderManager.addPendingOrder(order);
-        console.log(`📋 Order ${order._id} stored in Redis for real-time price-based execution (${orderVariant})`);
-      } catch (redisError) {
-        // Log error but don't fail order placement
-        console.error('Failed to store order in Redis:', redisError);
-      }
+    if (normalizedOrderType === 'delivery' && transactionType === 'buy') {
+      await fundManager.addFunds(userId, requiredFunds, null, {
+        reason: 'refund',
+        description: 'Refund due to order creation failure',
+      });
+    } else if (normalizedOrderType === 'intraday') {
+      await fundManager.releaseFunds(userId, requiredFunds, null, 'Order creation failed');
+    }
+
+    throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Failed to place order: ${error.message}`);
+  }
+
+  // Step 12: Execute market orders immediately or store limit orders in Redis
+  try {
+    if (orderVariant === 'market') {
+      // Execute market orders immediately
+      console.log(`Executing market order ${order._id} immediately...`);
+      const executedOrder = await orderExecutionService.executeOrder(order._id);
+      return executedOrder;
+    } else if (orderVariant === 'limit') {
+      // Store limit orders in Redis for price-based execution
+      await limitOrderManager.addPendingOrder(order);
+      console.log(`Limit order ${order._id} stored in Redis for price monitoring`);
+      return order;
+    } else if (orderVariant === 'sl' || orderVariant === 'slm') {
+      // TODO: Implement stop-loss order handling
+      console.log(`Stop-loss order ${order._id} created but execution not implemented yet`);
+      return order;
     }
 
     return order;
-  } catch (error) {
-    // Order creation failed
-    console.error(`❌ Order creation failed: ${error.message}`);
-    throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Failed to place order: ${error.message}`);
+  } catch (executionError) {
+    // Execution failed - handle cleanup
+    console.error(`Order execution failed: ${executionError.message}`);
+
+    // Mark order as rejected
+    order.status = 'rejected';
+    order.rejectionReason = executionError.message;
+    await order.save();
+
+    // Refund/release funds
+    if (normalizedOrderType === 'delivery' && transactionType === 'buy') {
+      await fundManager.addFunds(userId, requiredFunds, order._id, {
+        reason: 'refund',
+        description: 'Refund due to order execution failure',
+      });
+    } else if (normalizedOrderType === 'intraday') {
+      await fundManager.releaseFunds(userId, requiredFunds, order._id, 'Order execution failed');
+    }
+
+    throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Order execution failed: ${executionError.message}`);
   }
 };
 
@@ -202,15 +278,37 @@ const cancelOrder = async (orderId, userId, reason = 'User cancelled') => {
     throw new ApiError(httpStatus.BAD_REQUEST, `Cannot cancel order with status: ${order.status}`);
   }
 
-  // Step 4: Fund release - COMMENTED OUT FOR FRESH IMPLEMENTATION
-  // TODO: Implement fund release logic here
-  console.log(`⚠️ Fund release skipped for order ${orderId}`);
+  // Step 4: Calculate and release/refund funds
+  // For intraday orders, use reservedAmount (the actual locked amount)
+  // For delivery orders, use netAmount (the deducted amount)
+  const refundAmount = order.orderType === 'intraday' ? order.reservedAmount : order.netAmount;
+
+  if (order.orderType === 'delivery' && order.transactionType === 'buy') {
+    // Delivery buy: Refund deducted funds
+    try {
+      await fundManager.addFunds(userId, refundAmount, orderId, {
+        reason: 'order_cancelled',
+        description: `Order cancelled - Refund: Rs ${refundAmount.toLocaleString('en-IN')}`,
+      });
+      console.log(`Funds refunded for cancelled delivery buy order ${orderId}: Rs ${refundAmount}`);
+    } catch (fundError) {
+      console.error(`Failed to refund funds for order ${orderId}:`, fundError.message);
+    }
+  } else if (order.orderType === 'intraday') {
+    // Intraday: Release reserved funds
+    try {
+      await fundManager.releaseFunds(userId, refundAmount, orderId, 'Order cancelled by user');
+      console.log(`Funds released for cancelled intraday order ${orderId}: Rs ${refundAmount}`);
+    } catch (fundError) {
+      console.error(`Failed to release funds for order ${orderId}:`, fundError.message);
+    }
+  }
 
   // Step 5: Remove from Redis if it's a limit/SL order
   if (order.orderVariant === 'limit' || order.orderVariant === 'sl' || order.orderVariant === 'slm') {
     try {
       await limitOrderManager.removePendingOrder(orderId.toString(), order.symbol, order.exchange);
-      console.log(`🗑️ Removed cancelled order ${orderId} from Redis`);
+      console.log(`Removed cancelled order ${orderId} from Redis`);
     } catch (redisError) {
       console.error('Failed to remove order from Redis:', redisError);
     }

@@ -105,7 +105,7 @@ const releaseFunds = async (userId, amount, orderId = null, reason = 'Order canc
     userId,
     walletId: wallet._id,
     type: 'credit',
-    amount: 0, // No balance change, just unlocking
+    amount, // Available balance increases via unlock
     reason: 'refund',
     orderId,
     balanceBefore,
@@ -132,19 +132,13 @@ const releaseFunds = async (userId, amount, orderId = null, reason = 'Order canc
  * @returns {Promise<Object>} { success: boolean, wallet: Wallet, deducted: number, refunded: number }
  */
 const settleOrderPayment = async (userId, reservedAmount, actualAmount, orderId, metadata = {}) => {
-  validateAmount(reservedAmount, 'reserved amount');
+  if (typeof reservedAmount !== 'number' || isNaN(reservedAmount) || !isFinite(reservedAmount) || reservedAmount < 0) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid reserved amount for settlement');
+  }
   validateAmount(actualAmount, 'actual amount');
 
   const wallet = await walletService.getWalletByUserId(userId);
   const balanceBefore = wallet.balance;
-
-  // Verify that the reserved amount is actually locked
-  if (reservedAmount > wallet.lockedAmount) {
-    throw new ApiError(
-      httpStatus.BAD_REQUEST,
-      `Reserved amount (₹${reservedAmount.toLocaleString('en-IN')}) exceeds locked amount (₹${wallet.lockedAmount.toLocaleString('en-IN')})`,
-    );
-  }
 
   // Check if actual amount can be deducted from balance
   if (actualAmount > wallet.balance) {
@@ -154,8 +148,12 @@ const settleOrderPayment = async (userId, reservedAmount, actualAmount, orderId,
     );
   }
 
-  // Unlock the reserved amount
-  wallet.unlockAmount(reservedAmount);
+  // Unlock only what's available (min of reserved amount and current locked amount)
+  // This handles cases where multiple orders are being settled simultaneously
+  const amountToUnlock = Math.min(reservedAmount, wallet.lockedAmount);
+  if (amountToUnlock > 0) {
+    wallet.unlockAmount(amountToUnlock);
+  }
 
   // Deduct the actual amount
   wallet.deduct(actualAmount);
@@ -184,7 +182,7 @@ const settleOrderPayment = async (userId, reservedAmount, actualAmount, orderId,
       userId,
       walletId: wallet._id,
       type: 'credit',
-      amount: 0, // Virtual refund, already unlocked
+      amount: difference, // Amount unlocked from reserved funds
       reason: 'refund',
       orderId,
       balanceBefore: wallet.balance,
@@ -270,6 +268,95 @@ const creditSaleProceeds = async (userId, amount, orderId, metadata = {}) => {
 };
 
 /**
+ * Deduct funds directly from wallet (for delivery orders)
+ * This immediately deducts funds without locking first
+ * @param {ObjectId} userId - User ID
+ * @param {number} amount - Amount to deduct
+ * @param {string} orderId - Order ID for reference
+ * @param {Object} metadata - Additional metadata
+ * @returns {Promise<Object>} { success: boolean, wallet: Wallet, deducted: number }
+ */
+const deductFunds = async (userId, amount, orderId = null, metadata = {}) => {
+  validateAmount(amount, 'fund deduction');
+
+  const wallet = await walletService.getWalletByUserId(userId);
+  const balanceBefore = wallet.balance;
+
+  // Check if sufficient balance is available
+  if (amount > wallet.balance) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      `Insufficient balance. Required: Rs ${amount.toLocaleString('en-IN')}, Available: Rs ${wallet.balance.toLocaleString('en-IN')}`,
+    );
+  }
+
+  // Deduct the amount
+  wallet.deduct(amount);
+  await wallet.save();
+
+  // Create transaction record
+  await transactionService.createTransaction({
+    userId,
+    walletId: wallet._id,
+    type: 'debit',
+    amount,
+    reason: metadata.reason || 'stock_buy',
+    orderId,
+    balanceBefore,
+    balanceAfter: wallet.balance,
+    description: metadata.description || `Funds deducted: Rs ${amount.toLocaleString('en-IN')}`,
+  });
+
+  return {
+    success: true,
+    wallet,
+    deducted: amount,
+    finalBalance: wallet.balance,
+    availableBalance: wallet.availableBalance,
+  };
+};
+
+/**
+ * Add funds to wallet (for refunds or corrections)
+ * @param {ObjectId} userId - User ID
+ * @param {number} amount - Amount to add
+ * @param {string} orderId - Order ID for reference
+ * @param {Object} metadata - Additional metadata
+ * @returns {Promise<Object>} { success: boolean, wallet: Wallet, added: number }
+ */
+const addFunds = async (userId, amount, orderId = null, metadata = {}) => {
+  validateAmount(amount, 'fund addition');
+
+  const wallet = await walletService.getWalletByUserId(userId);
+  const balanceBefore = wallet.balance;
+
+  // Credit the amount
+  wallet.credit(amount);
+  await wallet.save();
+
+  // Create transaction record
+  await transactionService.createTransaction({
+    userId,
+    walletId: wallet._id,
+    type: 'credit',
+    amount,
+    reason: metadata.reason || 'refund',
+    orderId,
+    balanceBefore,
+    balanceAfter: wallet.balance,
+    description: metadata.description || `Funds added: Rs ${amount.toLocaleString('en-IN')}`,
+  });
+
+  return {
+    success: true,
+    wallet,
+    added: amount,
+    finalBalance: wallet.balance,
+    availableBalance: wallet.availableBalance,
+  };
+};
+
+/**
  * Get fund reservation status
  * @param {ObjectId} userId - User ID
  * @returns {Promise<Object>} Fund status details
@@ -293,5 +380,7 @@ module.exports = {
   releaseFunds,
   settleOrderPayment,
   creditSaleProceeds,
+  deductFunds,
+  addFunds,
   getFundStatus,
 };

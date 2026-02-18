@@ -2,7 +2,7 @@ const httpStatus = require('http-status');
 const { Holding, Order, Transaction, Wallet, User } = require('../../../../models');
 const ApiError = require('../../../../utils/ApiError');
 const logger = require('../../../../config/logger');
-const { getRedisClient } = require('../../../../utils/redisUtil');
+const { getRedisClient } = require('../../../../db/redis');
 const { marketDataService } = require('../../mockMarket');
 
 /**

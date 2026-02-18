@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Positions - InvesttPlus</title>
+    <link rel="stylesheet" href="positions.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="brand">📈 InvesttPlus</div>
+        <div class="user-menu">
+            <span class="user-name" id="userName">Welcome!</span>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+    </nav>
+
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+        <ul class="sidebar-menu">
+            <li><a href="../dashboard/"><span class="icon">📊</span> Dashboard</a></li>
+            <li><a href="../wallet/"><span class="icon">💰</span> Wallet</a></li>
+            <li><a href="../stocks/"><span class="icon">📈</span> Stocks</a></li>
+            <li><a href="../portfolio/"><span class="icon">📋</span> Portfolio</a></li>
+            <li><a href="../holdings/"><span class="icon">🏦</span> Holdings</a></li>
+            <li><a href="#" class="active"><span class="icon">📍</span> Positions</a></li>
+            <li><a href="../orders/"><span class="icon">📋</span> Orders</a></li>
+            <li><a href="../profile/"><span class="icon">👤</span> Profile</a></li>
+        </ul>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Positions Header -->
+        <div class="dashboard-header">
+            <h1>Active Positions</h1>
+            <p>View your current intraday and delivery positions</p>
+        </div>
+
+        <!-- Position Type Tabs -->
+        <div class="position-tabs">
+            <button class="tab-btn active" data-type="intraday" onclick="switchTab('intraday')">
+                <span class="tab-icon">⚡</span>
+                <span>Intraday Positions</span>
+            </button>
+            <button class="tab-btn" data-type="delivery" onclick="switchTab('delivery')">
+                <span class="tab-icon">📦</span>
+                <span>Delivery Positions</span>
+            </button>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="stats-grid">
+            <div class="stat-card neutral">
+                <div class="icon">📊</div>
+                <h3>Total Positions</h3>
+                <div class="value" id="totalPositions">0</div>
+                <p>Active positions</p>
+            </div>
+            <div class="stat-card neutral">
+                <div class="icon">💼</div>
+                <h3>Total Investment</h3>
+                <div class="value" id="totalInvestment">₹0.00</div>
+                <p>Amount invested in positions</p>
+            </div>
+            <div class="stat-card neutral">
+                <div class="icon">💰</div>
+                <h3>Current Value</h3>
+                <div class="value" id="currentValue">₹0.00</div>
+                <p>Current market value</p>
+            </div>
+            <div class="stat-card" id="pnlCard">
+                <div class="icon">📈</div>
+                <h3>Total P&L</h3>
+                <div class="value" id="totalPnL">₹0.00</div>
+                <p id="pnlPercentage">0.00%</p>
+            </div>
+        </div>
+
+        <!-- Intraday Positions Section -->
+        <div id="intradaySection" class="positions-section">
+            <!-- Position Filters -->
+            <div class="content-card">
+                <div class="card-header">
+                    <h2>Intraday Position Filters</h2>
+                    <div class="header-actions">
+                        <select id="intradaySortSelect" class="filter-select">
+                            <option value="symbol">Sort by Symbol</option>
+                            <option value="quantity">Sort by Quantity</option>
+                            <option value="pnl">Sort by P&L</option>
+                            <option value="pnlPercentage">Sort by P&L %</option>
+                        </select>
+                        <input type="text" id="intradaySearchInput" placeholder="Search positions..." class="search-input">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Intraday Positions Table -->
+            <div class="content-card full-width">
+                <div class="card-header">
+                    <h2>Intraday Positions</h2>
+                    <div class="header-actions">
+                        <span class="auto-squareoff-time" id="autoSquareOffTime">
+                            Auto Square-off at 15:20
+                        </span>
+                        <button class="refresh-btn" onclick="loadPositions()">🔄 Refresh</button>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="table-container">
+                        <table class="data-table" id="intradayPositionsTable">
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>Type</th>
+                                    <th>Quantity</th>
+                                    <th>Avg Price</th>
+                                    <th>Current Price</th>
+                                    <th>Investment</th>
+                                    <th>Current Value</th>
+                                    <th>P&L</th>
+                                    <th>P&L %</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="intradayPositionsBody">
+                                <tr class="loading-row">
+                                    <td colspan="10">
+                                        <div class="loading-spinner">
+                                            <div class="spinner"></div>
+                                            <p>Loading intraday positions...</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Delivery Positions Section -->
+        <div id="deliverySection" class="positions-section" style="display: none;">
+            <!-- Position Filters -->
+            <div class="content-card">
+                <div class="card-header">
+                    <h2>Delivery Position Filters</h2>
+                    <div class="header-actions">
+                        <select id="deliverySortSelect" class="filter-select">
+                            <option value="symbol">Sort by Symbol</option>
+                            <option value="quantity">Sort by Quantity</option>
+                            <option value="pnl">Sort by P&L</option>
+                            <option value="pnlPercentage">Sort by P&L %</option>
+                        </select>
+                        <input type="text" id="deliverySearchInput" placeholder="Search positions..." class="search-input">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Delivery Positions Table -->
+            <div class="content-card full-width">
+                <div class="card-header">
+                    <h2>Delivery Positions</h2>
+                    <div class="header-actions">
+                        <span class="delivery-info">
+                            Will convert to holdings after 24 hours
+                        </span>
+                        <button class="refresh-btn" onclick="loadPositions()">🔄 Refresh</button>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="table-container">
+                        <table class="data-table" id="deliveryPositionsTable">
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>Quantity</th>
+                                    <th>Avg Price</th>
+                                    <th>Current Price</th>
+                                    <th>Investment</th>
+                                    <th>Current Value</th>
+                                    <th>P&L</th>
+                                    <th>P&L %</th>
+                                    <th>Expires At</th>
+                                </tr>
+                            </thead>
+                            <tbody id="deliveryPositionsBody">
+                                <tr class="loading-row">
+                                    <td colspan="9">
+                                        <div class="loading-spinner">
+                                            <div class="spinner"></div>
+                                            <p>Loading delivery positions...</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="empty-state" style="display: none;">
+            <div class="empty-icon">📭</div>
+            <h2>No Positions Found</h2>
+            <p>You don't have any active positions yet. Start trading to see your positions here.</p>
+            <a href="../stocks/" class="btn-primary">Browse Stocks</a>
+        </div>
+    </main>
+
+    <!-- Square Off Modal -->
+    <div id="squareOffModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Square Off Position</h2>
+                <button class="close-btn" onclick="closeSquareOffModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="position-details">
+                    <h3 id="squareOffSymbol">-</h3>
+                    <div class="detail-row">
+                        <span>Quantity:</span>
+                        <strong id="squareOffQuantity">-</strong>
+                    </div>
+                    <div class="detail-row">
+                        <span>Average Price:</span>
+                        <strong id="squareOffAvgPrice">-</strong>
+                    </div>
+                    <div class="detail-row">
+                        <span>Current Price:</span>
+                        <strong id="squareOffCurrentPrice">-</strong>
+                    </div>
+                    <div class="detail-row">
+                        <span>Current P&L:</span>
+                        <strong id="squareOffPnL" class="pnl-positive">-</strong>
+                    </div>
+                </div>
+                <p class="warning-text">⚠️ This will immediately close your position at current market price.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeSquareOffModal()">Cancel</button>
+                <button class="btn-danger" onclick="confirmSquareOff()">Square Off Position</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="positions.js"></script>
+</body>
+</html>

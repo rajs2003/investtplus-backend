@@ -193,7 +193,7 @@ const syncPendingOrdersToRedis = async () => {
       if (success) syncedCount++;
     }
 
-    logger.info(`✅ Synced ${syncedCount}/${pendingOrders.length} pending orders to Redis`);
+    logger.info(`Synced ${syncedCount}/${pendingOrders.length} pending orders to Redis`);
     return { success: true, count: syncedCount };
   } catch (error) {
     logger.error('Failed to sync pending orders to Redis:', error);
@@ -256,7 +256,7 @@ const processPriceChange = async (symbol, exchange, currentPrice) => {
       orders: [],
     };
 
-    // ✅ PARALLEL PROCESSING - No FIFO, execute all eligible orders simultaneously
+    // PARALLEL PROCESSING - No FIFO, execute all eligible orders simultaneously
     const executionPromises = pendingOrders.map(async (orderData) => {
       try {
         // Check if conditions are met
@@ -264,7 +264,7 @@ const processPriceChange = async (symbol, exchange, currentPrice) => {
           return { status: 'skipped', orderId: orderData.orderId };
         }
 
-        logger.info(`🎯 Executing ${orderData.orderVariant} order on price match`, {
+        logger.info(`Executing ${orderData.orderVariant} order on price match`, {
           orderId: orderData.orderId,
           symbol: orderData.symbol,
           targetPrice: orderData.price || orderData.triggerPrice,
@@ -284,7 +284,7 @@ const processPriceChange = async (symbol, exchange, currentPrice) => {
           // Remove from Redis
           await removePendingOrder(orderData.orderId, symbol, exchange);
 
-          logger.info(`✅ Order ${orderData.orderId} executed @ ₹${executedOrder.executedPrice}`);
+          logger.info(`Order ${orderData.orderId} executed @ ₹${executedOrder.executedPrice}`);
 
           return {
             status: 'executed',
@@ -295,7 +295,7 @@ const processPriceChange = async (symbol, exchange, currentPrice) => {
 
         return { status: 'not_executed', orderId: orderData.orderId };
       } catch (error) {
-        logger.error(`❌ Failed to execute order ${orderData.orderId}: ${error.message}`);
+        logger.error(`Failed to execute order ${orderData.orderId}: ${error.message}`);
 
         // If order is no longer pending (cancelled/rejected), remove from Redis
         try {
@@ -326,7 +326,7 @@ const processPriceChange = async (symbol, exchange, currentPrice) => {
     });
 
     if (results.executed > 0) {
-      logger.info(`✅ ${results.executed} order(s) executed for ${symbol}`);
+      logger.info(`${results.executed} order(s) executed for ${symbol}`);
     }
 
     return results;
