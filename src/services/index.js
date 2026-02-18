@@ -6,6 +6,7 @@ const holdingService = require('./v1/marketServices/holdingServices/holding.serv
 const { tradeService } = require('./v1/marketServices/tradeServices/');
 const { watchlistService } = require('./v1/marketServices/watchlistServices');
 const { dashboardService } = require('./v1/marketServices/dashboardServices');
+const positionService = require('./v1/marketServices/positionServices/position.service');
 const { marketDataService, marketWebSocketService } = require('./v1/mockMarket');
 const stockService = require('./v1/stockServices/stock.service');
 
@@ -26,6 +27,7 @@ module.exports = {
   tradeService,
   watchlistService,
   dashboardService,
+  positionService,
   marketDataService,
   marketWebSocketService,
   stockService,

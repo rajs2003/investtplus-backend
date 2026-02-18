@@ -12,59 +12,41 @@ const placeOrder = catchAsync(async (req, res) => {
   const userId = req.user.id;
   const orderData = req.body;
 
-  // Check market status before placing order
   const marketStatus = marketDataService.getMarketStatus();
 
-  // Return market status info with response
   const marketInfo = {
     status: marketStatus.status,
     reason: marketStatus.reason,
     isOpen: marketStatus.status === 'OPEN',
   };
 
+  // placeOrder already executes market orders and returns the executed order
   const order = await orderService.placeOrder(userId, orderData);
 
-  // For market orders, execute immediately
-  if (orderData.orderVariant === 'market') {
-    try {
-      const executedOrder = await orderExecutionService.executeMarketOrder(order.id);
-
-      res.status(httpStatus.CREATED).json({
-        success: true,
-        message: 'Order placed and executed successfully',
-        market: marketInfo,
-        order: {
-          id: executedOrder.id,
-          symbol: executedOrder.symbol,
-          orderType: executedOrder.orderType,
-          orderVariant: executedOrder.orderVariant,
-          transactionType: executedOrder.transactionType,
-          quantity: executedOrder.quantity,
-          executedPrice: executedOrder.executedPrice,
-          status: executedOrder.status,
-          orderValue: `₹${executedOrder.orderValue.toLocaleString('en-IN')}`,
-          totalCharges: `₹${executedOrder.totalCharges.toLocaleString('en-IN')}`,
-          netAmount: `₹${executedOrder.netAmount.toLocaleString('en-IN')}`,
-          executedAt: executedOrder.executedAt,
-          createdAt: executedOrder.createdAt,
-        },
-        executedOrder,
-      });
-    } catch (executionError) {
-      // Order placed but execution failed
-      res.status(httpStatus.ACCEPTED).json({
-        success: false,
-        message: 'Order placed but execution failed',
-        market: marketInfo,
-        order: {
-          id: order.id,
-          status: 'rejected',
-          reason: executionError.message,
-        },
-      });
-    }
+  // Check if order was executed (market orders are executed immediately)
+  if (order.status === 'executed') {
+    res.status(httpStatus.CREATED).json({
+      success: true,
+      message: 'Order placed and executed successfully',
+      market: marketInfo,
+      order: {
+        id: order.id,
+        symbol: order.symbol,
+        orderType: order.orderType,
+        orderVariant: order.orderVariant,
+        transactionType: order.transactionType,
+        quantity: order.quantity,
+        executedPrice: order.executedPrice,
+        status: order.status,
+        orderValue: `₹${order.orderValue.toLocaleString('en-IN')}`,
+        totalCharges: `₹${order.totalCharges.toLocaleString('en-IN')}`,
+        netAmount: `₹${order.netAmount.toLocaleString('en-IN')}`,
+        executedAt: order.executedAt,
+        createdAt: order.createdAt,
+      },
+    });
   } else {
-    // For limit/SL orders, just return pending status
+    // Limit orders or other non-executed orders
     res.status(httpStatus.CREATED).json({
       success: true,
       message: 'Order placed successfully',
@@ -271,7 +253,7 @@ const getOrderHistory = catchAsync(async (req, res) => {
 const executeOrder = catchAsync(async (req, res) => {
   const { orderId } = req.params;
 
-  const order = await orderExecutionService.executeMarketOrder(orderId);
+  const order = await orderExecutionService.executeOrder(orderId);
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -282,7 +264,7 @@ const executeOrder = catchAsync(async (req, res) => {
       status: order.status,
       executedPrice: order.executedPrice,
       executedAt: order.executedAt,
-      netAmount: `₹${order.netAmount.toLocaleString('en-IN')}`,
+      netAmount: `Rs ${order.netAmount.toLocaleString('en-IN')}`,
     },
   });
 });

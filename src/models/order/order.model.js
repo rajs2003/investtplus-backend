@@ -144,6 +144,11 @@ const orderSchema = mongoose.Schema(
       required: true,
       default: 0,
     },
+    reservedAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
 
     // Metadata
     rejectionReason: {

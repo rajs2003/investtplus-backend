@@ -6,6 +6,7 @@ const watchlistValidation = require('./watchlist.validation');
 const dashboardValidation = require('./dashboard.validation');
 const holdingValidation = require('./holding.validation');
 const orderValidation = require('./order.validation');
+const positionValidation = require('./position.validation');
 
 module.exports = {
   authValidation,
@@ -16,4 +17,5 @@ module.exports = {
   dashboardValidation,
   holdingValidation,
   orderValidation,
+  positionValidation,
 };

@@ -4,6 +4,7 @@ const userRoute = require('./userRoutes/user.route');
 const walletRoute = require('./walletRoutes/wallet.route');
 const orderRoute = require('./orderRoutes/order.route');
 const holdingRoute = require('./holdingRoutes/holding.route');
+const positionRoute = require('./positionRoutes');
 const watchlistRoute = require('./watchlistRoutes');
 const dashboardRoute = require('./dashboardRoutes');
 const stockRoute = require('./stockRoutes/stock.route');
@@ -41,6 +42,10 @@ const defaultRoutes = [
   {
     path: '/holdings',
     route: holdingRoute,
+  },
+  {
+    path: '/positions',
+    route: positionRoute,
   },
   {
     path: '/watchlists',
