@@ -64,6 +64,7 @@ const allowedOrigins = [
   'http://localhost:3002',
   'http://127.0.0.1:3000',
   'https://investtplus-simulation-app.onrender.com',
+  'https://investtplus-simulation-forntend.vercel.app',
 ];
 app.use(
   cors({
