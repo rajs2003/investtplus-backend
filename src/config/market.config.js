@@ -5,18 +5,23 @@
 
 module.exports = {
   // Market Trading Hours (IST)
+  // Schedule: Market open all day EXCEPT 03:00–05:00 (maintenance window)
+  //   04:45–05:00  → Pre-Open  (15 min)
+  //   05:00–03:00  → Regular   (22 hrs, crosses midnight — handled in marketData.service)
+  //   03:00–03:15  → Post-Close (15 min)
+  //   03:15–04:45  → Fully Closed
   marketHours: {
     preOpen: {
-      start: '09:00',
-      end: '09:15',
+      start: '04:45',
+      end: '05:00',
     },
     regular: {
-      start: '09:15',
-      end: '23:30',
+      start: '05:00',
+      end: '03:00', // crosses midnight — 05:00 today → 03:00 next day
     },
     postClose: {
-      start: '23:30',
-      end: '00:00',
+      start: '03:00',
+      end: '03:15',
     },
     timezone: 'Asia/Kolkata',
   },
@@ -126,10 +131,20 @@ module.exports = {
   },
 
   // Auto Square-off Settings
+  // Fires 15 min before market closes (regular.end = 03:00)
   autoSquareOff: {
     intraday: {
-      time: '23:26', // Auto square-off time for intraday (HH:mm format)
+      time: '02:45', // Auto square-off time for intraday (HH:mm format)
       enabled: true,
+    },
+  },
+
+  // Scheduled Jobs Configuration
+  // Cron expressions used by marketSettlement.job.js
+  scheduledJobs: {
+    positionConversion: {
+      // Convert expired delivery positions to holdings — runs every hour
+      cronExpression: '0 * * * *',
     },
   },
 

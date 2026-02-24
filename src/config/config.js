@@ -5,6 +5,7 @@ const Joi = require('joi');
 dotenv.config({ path: path.join(__dirname, '../../.env') });
 const envVarsSchema = Joi.object()
   .keys({
+    APP_VERSION: Joi.string().optional().description('Application version'),
     NODE_ENV: Joi.string().valid('production', 'development', 'test').required(),
     PORT: Joi.number().default(3000),
     BASE_URL: Joi.string().default('http://localhost:3000'),
@@ -41,6 +42,7 @@ if (error) {
 }
 
 module.exports = {
+  version: envVars.APP_VERSION,
   env: envVars.NODE_ENV,
   port: envVars.PORT,
   base_url: envVars.BASE_URL,

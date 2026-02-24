@@ -14,8 +14,9 @@ const { authLimiter } = require('./middlewares/rateLimiter');
 const { v1Routes } = require('./routes');
 const { errorConverter, errorHandler } = require('./middlewares/error');
 const ApiError = require('./utils/ApiError');
-// const logger = require('./config/logger');
+const logger = require('./config/logger');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 
@@ -79,7 +80,12 @@ app.use(function (req, res, next) {
   res.header('Access-Control-Allow-Credentials', true);
 
   if (config.env === 'production') {
-    res.header('Access-Control-Allow-Origin', 'https://investtplus.com');
+    // direct ek hi nahi dalte hain, isme apan check karte hain header me origin kya hai, agar origin allowed origins me se hai to hi allow karte hain varna nahi karte hain
+    // res.header('Access-Control-Allow-Origin', 'https://investtplus.com');
+    const origin = req.headers.origin;
+    if (allowedOrigins.includes(origin)) {
+      res.header('Access-Control-Allow-Origin', origin);
+    }
   } else {
     res.header('Access-Control-Allow-Origin', 'http://localhost:3000');
   }
@@ -101,50 +107,20 @@ passport.use('jwt', jwtStrategy);
 
 // limit repeated failed requests to auth endpoints
 if (config.env === 'production') {
-  app.use('/v1/auth', authLimiter);
+  app.use(authLimiter);
 }
 
 //check the backend
 app.get('/', (req, res) => {
-  // req.cookies
-  res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Backend Status</title>
-            <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    background-color: #f4f4f4;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    height: 100vh;
-                    margin: 0;
-                }
-                .container {
-                    text-align: center;
-                    background: white;
-                    padding: 20px;
-                    border-radius: 8px;
-                    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-                }
-                h1 {
-                    color: #333;
-                }
-                p {
-                    color: #666;
-                }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h1>Backend Status</h1>
-                <p>The backend is working fine.</p>
-            </div>
-        </body>
-        </html>
-    `);
+  try {
+    const templatePath = path.join(__dirname, 'templates', 'status', 'statusDisplay.html');
+    let html = fs.readFileSync(templatePath, 'utf8');
+    res.send(html);
+  } catch (err) {
+    // fallback to simple text
+    res.status(500).send('Unable to render status page');
+    logger.error('Error rendering status page', err);
+  }
 });
 
 // v1 api routes

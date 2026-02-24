@@ -3,6 +3,7 @@ const HTTPStatus = require('http-status');
 const catchAsync = require('../../../utils/catchAsync');
 const ApiError = require('../../../utils/ApiError');
 const config = require('../../../config/config');
+const { getMarketStatus } = require('../../../services/v1/mockMarket/marketData.service');
 
 const router = express.Router();
 
@@ -11,6 +12,7 @@ router.get(
   catchAsync((req, res) => {
     try {
       res.status(HTTPStatus.OK).json({
+        version: config.version,
         status: 'OK',
         Timestamp: new Date().toISOString(),
         Uptime: process.uptime(),
@@ -33,6 +35,7 @@ router.get(
         status: 'READY',
         Timestamp: new Date().toISOString(),
         Message: 'Server is ready to accept requests',
+        MarketStatus: getMarketStatus(),
       });
     } catch (err) {
       console.error('Readiness check error:', err);

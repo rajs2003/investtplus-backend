@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Server Status</title>
+
+<style>
+/* RESET */
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family: 'Segoe UI', sans-serif;
+cursor:none;
+}
+
+/* 🌈 Animated Gradient Background */
+body{
+height:100vh;
+display:flex;
+align-items:center;
+justify-content:center;
+background: linear-gradient(-45deg, #ff0080, #7928ca, #2af598, #00c6ff);
+background-size: 400% 400%;
+animation: gradientBG 10s ease infinite;
+overflow:hidden;
+color:white;
+}
+
+@keyframes gradientBG {
+0%{background-position:0% 50%;}
+50%{background-position:100% 50%;}
+100%{background-position:0% 50%;}
+}
+
+/* 🌟 Glass Card */
+.card{
+background: rgba(255,255,255,0.1);
+border-radius:20px;
+padding:50px;
+text-align:center;
+backdrop-filter: blur(20px);
+box-shadow:0 0 40px rgba(0,0,0,0.3);
+animation: float 4s ease-in-out infinite;
+}
+
+@keyframes float{
+0%,100%{transform:translateY(0px);}
+50%{transform:translateY(-15px);}
+}
+
+/* 🔥 Animated Title */
+.title{
+font-size:3rem;
+font-weight:bold;
+background: linear-gradient(90deg,#ff0,#f0f,#0ff,#0f0);
+-webkit-background-clip:text;
+-webkit-text-fill-color:transparent;
+animation: shine 4s linear infinite;
+}
+
+@keyframes shine{
+0%{filter:hue-rotate(0deg);}
+100%{filter:hue-rotate(360deg);}
+}
+
+/* 🟢 Status */
+.status{
+margin-top:20px;
+font-size:1.5rem;
+display:flex;
+align-items:center;
+justify-content:center;
+gap:10px;
+}
+
+/* 🟢 Blinking Dot */
+.dot{
+height:15px;
+width:15px;
+background:#00ff88;
+border-radius:50%;
+box-shadow:0 0 10px #00ff88;
+animation: blink 1s infinite;
+}
+
+@keyframes blink{
+0%,100%{opacity:1;}
+50%{opacity:0.2;}
+}
+
+/* ✨ Floating Color Blobs */
+.blob{
+position:absolute;
+width:200px;
+height:200px;
+border-radius:50%;
+filter: blur(80px);
+opacity:0.7;
+animation: move 10s infinite alternate;
+}
+
+.blob1{background:#ff00ff; top:10%; left:20%;}
+.blob2{background:#00ffff; bottom:10%; right:20%;}
+.blob3{background:#00ff88; top:60%; left:60%;}
+
+@keyframes move{
+from{transform:translateY(0px);}
+to{transform:translateY(-50px);}
+}
+
+/* ✨ Custom Cursor */
+.cursor{
+position:fixed;
+width:20px;
+height:20px;
+border-radius:50%;
+background:linear-gradient(45deg,#ff0,#f0f);
+pointer-events:none;
+mix-blend-mode:difference;
+transform:translate(-50%, -50%);
+transition: transform 0.1s ease;
+}
+</style>
+</head>
+
+<body>
+
+<div class="blob blob1"></div>
+<div class="blob blob2"></div>
+<div class="blob blob3"></div>
+
+<div class="card">
+<h1 class="title">Investtplus</h1>
+<div class="status">
+<div class="dot"></div>
+
+<span>Server is Running Well</span>
+</div>
+</div>
+
+<div class="cursor"></div>
+
+<script>
+const cursor = document.querySelector('.cursor');
+
+document.addEventListener('mousemove', e => {
+cursor.style.left = e.clientX + 'px';
+cursor.style.top = e.clientY + 'px';
+});
+</script>
+
+</body>
+</html>

@@ -92,6 +92,12 @@ const isMarketOpen = () => {
   const marketStart = marketConfig.marketHours.regular.start;
   const marketEnd = marketConfig.marketHours.regular.end;
 
+  // Midnight-crossing session (e.g. 05:00 → 03:00 next day)
+  // When start > end lexicographically the window wraps past midnight.
+  if (marketStart > marketEnd) {
+    return currentTime >= marketStart || currentTime <= marketEnd;
+  }
+
   return currentTime >= marketStart && currentTime <= marketEnd;
 };
 
@@ -121,15 +127,25 @@ const getMarketStatus = () => {
   }
 
   // Check market session
-  if (currentTime >= marketConfig.marketHours.preOpen.start && currentTime < marketConfig.marketHours.preOpen.end) {
+  const { preOpen, regular, postClose } = marketConfig.marketHours;
+
+  // 1. Pre-Open check (simple range, no midnight crossing)
+  if (currentTime >= preOpen.start && currentTime < preOpen.end) {
     return { status: 'PRE_OPEN', reason: 'Pre-market session' };
   }
 
-  if (currentTime >= marketConfig.marketHours.regular.start && currentTime <= marketConfig.marketHours.regular.end) {
+  // 2. Regular session — supports midnight-crossing (e.g. 05:00 → 03:00)
+  const isMidnightCrossing = regular.start > regular.end;
+  const isRegularOpen = isMidnightCrossing
+    ? currentTime >= regular.start || currentTime <= regular.end
+    : currentTime >= regular.start && currentTime <= regular.end;
+
+  if (isRegularOpen) {
     return { status: 'OPEN', reason: 'Market is open' };
   }
 
-  if (currentTime > marketConfig.marketHours.regular.end && currentTime <= marketConfig.marketHours.postClose.end) {
+  // 3. Post-Close check (simple range)
+  if (currentTime >= postClose.start && currentTime <= postClose.end) {
     return { status: 'POST_CLOSE', reason: 'Post-market session' };
   }
 

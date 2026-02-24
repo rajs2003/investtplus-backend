@@ -46,8 +46,8 @@ const scheduleIntradaySquareOff = () => {
  * Runs every hour to check for expired delivery positions
  */
 const schedulePositionConversion = () => {
-  // Run every hour at minute 0
-  const cronExpression = '0 * * * *';
+  // Cron expression pulled from config (default: every hour at :00)
+  const cronExpression = marketConfig.scheduledJobs.positionConversion.cronExpression;
 
   console.log(`Scheduling position to holding conversion every hour (${cronExpression})`);
 
