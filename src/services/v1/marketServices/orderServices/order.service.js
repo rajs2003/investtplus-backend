@@ -8,7 +8,7 @@ const { marketDataService } = require('../../mockMarket');
 const limitOrderManager = require('./limitOrderManager.service');
 const fundManager = require('../walletServices/fundManager.service');
 const orderExecutionService = require('./orderExecution.service');
-const { Holding } = require('../../../../models');
+const { Holding, Position } = require('../../../../models');
 
 /**
  * ========================================
@@ -36,6 +36,9 @@ const { Holding } = require('../../../../models');
  */
 const placeOrder = async (userId, orderData) => {
   const { symbol, exchange, orderType, orderVariant, transactionType, quantity, price, triggerPrice } = orderData;
+
+  // Tracks whether margin was actually reserved — used in failure cleanup and reservedAmount field
+  let intradayReservationNeeded = false;
 
   const normalizedOrderType = orderType === 'MIS' || orderType === 'mis' ? 'intraday' : orderType.toLowerCase();
 
@@ -144,14 +147,38 @@ const placeOrder = async (userId, orderData) => {
       );
     }
   } else if (normalizedOrderType === 'intraday') {
-    // For intraday orders, reserve funds (lock but don't deduct)
-    try {
-      await fundManager.reserveFunds(userId, requiredFunds, null);
-      console.log(`Funds reserved for intraday order: Rs ${requiredFunds.toFixed(2)}`);
-    } catch (fundError) {
-      throw new ApiError(
-        httpStatus.BAD_REQUEST,
-        `Insufficient funds for reservation. ${fundError.message}. Required: Rs ${requiredFunds.toFixed(2)}`,
+    // Reserve margin ONLY for new positions (long open or short open).
+    // For squareoff (sell against existing long) or cover (buy against existing short),
+    // the original position's margin is already locked — no new reservation needed.
+    const existingIntradayPosition = await Position.findOne({
+      userId,
+      symbol: symbol.toUpperCase(),
+      exchange: exchange || 'NSE',
+      positionType: 'intraday',
+      isSquaredOff: false,
+    });
+
+    const isCoveringShort = transactionType === 'buy' && existingIntradayPosition && existingIntradayPosition.quantity < 0;
+    const isSquaringOffLong =
+      transactionType === 'sell' && existingIntradayPosition && existingIntradayPosition.quantity > 0;
+
+    intradayReservationNeeded = !isCoveringShort && !isSquaringOffLong;
+
+    if (intradayReservationNeeded) {
+      try {
+        await fundManager.reserveFunds(userId, requiredFunds, null);
+        console.log(`Funds reserved for intraday ${transactionType} order: Rs ${requiredFunds.toFixed(2)}`);
+      } catch (fundError) {
+        throw new ApiError(
+          httpStatus.BAD_REQUEST,
+          `Insufficient funds for reservation. ${fundError.message}. Required: Rs ${requiredFunds.toFixed(2)}`,
+        );
+      }
+    } else {
+      console.log(
+        `Skipping margin reservation — intraday ${transactionType} is ${
+          isCoveringShort ? 'covering a short' : 'squaring off a long'
+        } position for ${symbol}`,
       );
     }
   }
@@ -181,7 +208,10 @@ const placeOrder = async (userId, orderData) => {
       stampDuty: charges.stampDuty,
       totalCharges: charges.totalCharges,
       netAmount: charges.netAmount,
-      reservedAmount: normalizedOrderType === 'intraday' ? requiredFunds : charges.netAmount, // Store reserved amount for intraday
+      // For intraday: store the actual reserved margin (0 for squareoff/cover orders)
+      // For delivery: store the net amount deducted
+      reservedAmount:
+        normalizedOrderType === 'intraday' ? (intradayReservationNeeded ? requiredFunds : 0) : charges.netAmount,
       description: orderHelpers.formatOrderDescription({
         transactionType,
         quantity,
@@ -205,7 +235,7 @@ const placeOrder = async (userId, orderData) => {
         reason: 'refund',
         description: 'Refund due to order creation failure',
       });
-    } else if (normalizedOrderType === 'intraday') {
+    } else if (normalizedOrderType === 'intraday' && intradayReservationNeeded) {
       await fundManager.releaseFunds(userId, requiredFunds, null, 'Order creation failed');
     }
 
@@ -246,7 +276,7 @@ const placeOrder = async (userId, orderData) => {
         reason: 'refund',
         description: 'Refund due to order execution failure',
       });
-    } else if (normalizedOrderType === 'intraday') {
+    } else if (normalizedOrderType === 'intraday' && intradayReservationNeeded) {
       await fundManager.releaseFunds(userId, requiredFunds, order._id, 'Order execution failed');
     }
 

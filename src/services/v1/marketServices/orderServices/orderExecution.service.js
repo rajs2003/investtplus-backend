@@ -96,64 +96,110 @@ const handleIntradayBuy = async (order, executionPrice) => {
     const newQuantity = position.quantity + order.quantity;
 
     if (newQuantity === 0) {
-      // Position fully squared off
+      // Short fully squared off via cover buy
+      // Release the margin that was locked when the short was opened (20% of full position value)
+      const marginRequired = marketConfig.margins.intraday.required;
+      const shortMarginReserved = shortMarginBeforeCover * marginRequired;
       position.markAsSquaredOff(order._id);
-      // Release reserved margin for short position
-      await releaseUpToLocked(order.userId, shortMarginBeforeCover, order._id, 'Short position squared off');
+      await releaseUpToLocked(order.userId, shortMarginReserved, order._id, 'Intraday short position squared off');
 
-      const actualAmount0 = order.quantity * executionPrice;
-      await fundManager.settleOrderPayment(order.userId, order.reservedAmount || actualAmount0, actualAmount0, order._id, {
-        reason: 'stock_buy',
-        description: `Intraday short cover: ${order.quantity} ${order.symbol} @ Rs ${executionPrice}`,
-      });
+      // Settle P&L: short profit = sell high, buy low
+      const pnl = (position.averagePrice - executionPrice) * order.quantity - order.totalCharges;
+      if (pnl > 0) {
+        await fundManager.creditSaleProceeds(order.userId, pnl, order._id, {
+          reason: 'stock_sell',
+          description: `Intraday short cover profit: ${order.quantity} ${order.symbol} @ Rs ${executionPrice}`,
+          isProfit: true,
+          profitAmount: pnl,
+        });
+      } else if (pnl < 0) {
+        await fundManager.deductFunds(order.userId, Math.abs(pnl), order._id, {
+          reason: 'intraday_loss',
+          description: `Intraday short cover loss: ${order.quantity} ${order.symbol} @ Rs ${executionPrice}`,
+        });
+      }
     } else if (newQuantity > 0) {
-      // Short covered and now long
+      // Short fully covered and now net long with remaining quantity
+      const marginRequired = marketConfig.margins.intraday.required;
+      const shortMarginReserved = shortMarginBeforeCover * marginRequired;
+
+      // P&L on the short portion (shortQuantityBeforeCover shares)
+      const pnlOnShort =
+        (position.averagePrice - executionPrice) * shortQuantityBeforeCover -
+        order.totalCharges * (shortQuantityBeforeCover / order.quantity);
+
+      // Release short margin
+      await releaseUpToLocked(order.userId, shortMarginReserved, order._id, 'Intraday short position covered');
+
+      if (pnlOnShort > 0) {
+        await fundManager.creditSaleProceeds(order.userId, pnlOnShort, order._id, {
+          reason: 'stock_sell',
+          description: `Intraday short cover profit (net long): ${order.symbol} @ Rs ${executionPrice}`,
+          isProfit: true,
+          profitAmount: pnlOnShort,
+        });
+      } else if (pnlOnShort < 0) {
+        await fundManager.deductFunds(order.userId, Math.abs(pnlOnShort), order._id, {
+          reason: 'intraday_loss',
+          description: `Intraday short cover loss (net long): ${order.symbol} @ Rs ${executionPrice}`,
+        });
+      }
+
+      // Reserve margin for the new net long position
+      const netLongMargin = newQuantity * executionPrice * marginRequired;
+      try {
+        await fundManager.reserveFunds(order.userId, netLongMargin, null);
+      } catch (e) {
+        console.warn(`Could not reserve margin for net long after short cover (${order.symbol}): ${e.message}`);
+      }
+
       position.quantity = newQuantity;
       position.averagePrice = executionPrice;
       position.totalValue = newQuantity * executionPrice;
       position.orderIds.push(order._id);
-      // Release short margin and settle for new long position
-      await releaseUpToLocked(order.userId, shortMarginBeforeCover, order._id, 'Short position covered');
-      const actualAmount1 = order.quantity * executionPrice; // Actual cost without margin
-      await fundManager.settleOrderPayment(order.userId, order.reservedAmount || actualAmount1, actualAmount1, order._id, {
-        reason: 'stock_buy',
-        description: `Intraday buy: ${order.quantity} ${order.symbol} @ Rs ${executionPrice}`,
-      });
     } else {
-      // Still short, just reduced
+      // Still short, just reduced (partial cover)
+      const marginRequired = marketConfig.margins.intraday.required;
+      // Release margin proportional to how many short shares were covered
+      const proportionalMarginRelease = marginToRelease * marginRequired;
+
+      // P&L on the covered portion
+      const pnl = (position.averagePrice - executionPrice) * order.quantity - order.totalCharges;
+
       position.quantity = newQuantity;
       position.totalValue = Math.abs(newQuantity * position.averagePrice);
       position.orderIds.push(order._id);
 
-      await releaseUpToLocked(order.userId, marginToRelease, order._id, 'Short position partially covered');
-
-      const actualAmountPartial = order.quantity * executionPrice;
-      await fundManager.settleOrderPayment(
+      await releaseUpToLocked(
         order.userId,
-        order.reservedAmount || actualAmountPartial,
-        actualAmountPartial,
+        proportionalMarginRelease,
         order._id,
-        {
-          reason: 'stock_buy',
-          description: `Intraday short partial cover: ${order.quantity} ${order.symbol} @ Rs ${executionPrice}`,
-        },
+        'Intraday short position partially covered',
       );
+
+      if (pnl > 0) {
+        await fundManager.creditSaleProceeds(order.userId, pnl, order._id, {
+          reason: 'stock_sell',
+          description: `Intraday short partial cover profit: ${order.quantity} ${order.symbol} @ Rs ${executionPrice}`,
+          isProfit: true,
+          profitAmount: pnl,
+        });
+      } else if (pnl < 0) {
+        await fundManager.deductFunds(order.userId, Math.abs(pnl), order._id, {
+          reason: 'intraday_loss',
+          description: `Intraday short partial cover loss: ${order.quantity} ${order.symbol} @ Rs ${executionPrice}`,
+        });
+      }
     }
 
     await position.save();
   } else if (position && position.quantity > 0) {
     // Adding to existing long position
+    // Margin for this additional quantity was already locked at order placement — no wallet change
     position.addQuantity(order.quantity, executionPrice, order._id);
     await position.save();
-
-    // Settle additional payment
-    const actualAmount2 = order.quantity * executionPrice; // Actual cost without margin
-    await fundManager.settleOrderPayment(order.userId, order.reservedAmount, actualAmount2, order._id, {
-      reason: 'stock_buy',
-      description: `Intraday buy: ${order.quantity} ${order.symbol} @ Rs ${executionPrice}`,
-    });
   } else {
-    // Create new long position
+    // Create new long position — margin (20%) was locked at order placement, no wallet deduction at execution
     position = await Position.create({
       userId: order.userId,
       walletId: wallet._id,
@@ -167,13 +213,7 @@ const handleIntradayBuy = async (order, executionPrice) => {
       orderIds: [order._id],
       expiresAt: calculateExpiryTime('intraday'),
     });
-
-    // Settle payment from reserved funds
-    const actualAmount3 = order.quantity * executionPrice; // Actual cost without margin
-    await fundManager.settleOrderPayment(order.userId, order.reservedAmount, actualAmount3, order._id, {
-      reason: 'stock_buy',
-      description: `Intraday buy: ${order.quantity} ${order.symbol} @ Rs ${executionPrice}`,
-    });
+    // Margin stays locked until squareoff — no further wallet change at execution
   }
 
   return { position };
@@ -202,60 +242,105 @@ const handleIntradaySell = async (order, executionPrice) => {
     const newQuantity = position.quantity - order.quantity;
 
     if (newQuantity === 0) {
-      // Position fully squared off
-      const proceeds = order.quantity * executionPrice - order.totalCharges;
+      // Long position fully squared off
+      const marginRequired = marketConfig.margins.intraday.required;
+      // Release the margin that was locked when this long was opened (20% of full position value)
+      const marginReserved = position.totalValue * marginRequired;
+      // P&L = (exit − entry) × qty − charges
+      const pnl = (executionPrice - position.averagePrice) * order.quantity - order.totalCharges;
+
       position.markAsSquaredOff(order._id);
+      await releaseUpToLocked(order.userId, marginReserved, order._id, 'Intraday long squared off');
 
-      // Credit proceeds
-      await fundManager.creditSaleProceeds(order.userId, proceeds, order._id, {
-        reason: 'stock_sell',
-        description: `Intraday sell: ${order.quantity} ${order.symbol} @ Rs ${executionPrice}`,
-      });
-
-      // Release any remaining locked funds
-      await releaseUpToLocked(order.userId, Math.abs(position.totalValue), order._id, 'Position squared off');
+      if (pnl > 0) {
+        await fundManager.creditSaleProceeds(order.userId, pnl, order._id, {
+          reason: 'stock_sell',
+          description: `Intraday squareoff profit: ${order.quantity} ${order.symbol} @ Rs ${executionPrice}`,
+          isProfit: true,
+          profitAmount: pnl,
+        });
+      } else if (pnl < 0) {
+        await fundManager.deductFunds(order.userId, Math.abs(pnl), order._id, {
+          reason: 'intraday_loss',
+          description: `Intraday squareoff loss: ${order.quantity} ${order.symbol} @ Rs ${executionPrice}`,
+        });
+      }
     } else if (newQuantity > 0) {
-      // Partial sell, still long
-      const proceeds = order.quantity * executionPrice - order.totalCharges;
+      // Partial sell, long position still open
+      const marginRequired = marketConfig.margins.intraday.required;
+      // Release margin proportional to the quantity being sold
+      const marginToRelease = order.quantity * position.averagePrice * marginRequired;
+      // P&L on the sold portion
+      const pnl = (executionPrice - position.averagePrice) * order.quantity - order.totalCharges;
+
       position.quantity = newQuantity;
       position.totalValue = newQuantity * position.averagePrice;
       position.orderIds.push(order._id);
 
-      await fundManager.creditSaleProceeds(order.userId, proceeds, order._id, {
-        reason: 'stock_sell',
-        description: `Intraday sell: ${order.quantity} ${order.symbol} @ Rs ${executionPrice}`,
-      });
+      await releaseUpToLocked(order.userId, marginToRelease, order._id, 'Intraday partial squareoff');
+
+      if (pnl > 0) {
+        await fundManager.creditSaleProceeds(order.userId, pnl, order._id, {
+          reason: 'stock_sell',
+          description: `Intraday partial squareoff profit: ${order.quantity} ${order.symbol} @ Rs ${executionPrice}`,
+          isProfit: true,
+          profitAmount: pnl,
+        });
+      } else if (pnl < 0) {
+        await fundManager.deductFunds(order.userId, Math.abs(pnl), order._id, {
+          reason: 'intraday_loss',
+          description: `Intraday partial squareoff loss: ${order.quantity} ${order.symbol} @ Rs ${executionPrice}`,
+        });
+      }
     } else {
-      // Sold more than held - now short
+      // Oversell: long fully closed + excess creates a net short position
+      const marginRequired = marketConfig.margins.intraday.required;
+      const originalLongQty = position.quantity;
+      const netShortQty = Math.abs(newQuantity);
+
+      // Release long margin fully
+      const longMarginReserved = position.totalValue * marginRequired;
+      await releaseUpToLocked(order.userId, longMarginReserved, order._id, 'Intraday long squared off (oversell)');
+
+      // P&L on the long portion only
+      const pnlOnLong =
+        (executionPrice - position.averagePrice) * originalLongQty - order.totalCharges * (originalLongQty / order.quantity);
+      if (pnlOnLong > 0) {
+        await fundManager.creditSaleProceeds(order.userId, pnlOnLong, order._id, {
+          reason: 'stock_sell',
+          description: `Intraday squareoff profit (oversell): ${order.symbol} @ Rs ${executionPrice}`,
+          isProfit: true,
+          profitAmount: pnlOnLong,
+        });
+      } else if (pnlOnLong < 0) {
+        await fundManager.deductFunds(order.userId, Math.abs(pnlOnLong), order._id, {
+          reason: 'intraday_loss',
+          description: `Intraday squareoff loss (oversell): ${order.symbol} @ Rs ${executionPrice}`,
+        });
+      }
+
+      // Reserve margin for the net short portion
+      const shortMarginNeeded = netShortQty * executionPrice * marginRequired;
+      try {
+        await fundManager.reserveFunds(order.userId, shortMarginNeeded, null);
+      } catch (e) {
+        console.warn(`Could not reserve margin for net short after oversell (${order.symbol}): ${e.message}`);
+      }
+
       position.quantity = newQuantity;
       position.averagePrice = executionPrice;
-      position.totalValue = Math.abs(newQuantity) * executionPrice;
+      position.totalValue = netShortQty * executionPrice;
       position.orderIds.push(order._id);
-
-      // Note: Margin was already reserved at order placement time
-      // Just credit the sale proceeds
-      const proceeds = order.quantity * executionPrice - order.totalCharges;
-      await fundManager.creditSaleProceeds(order.userId, proceeds, order._id, {
-        reason: 'stock_sell',
-        description: `Intraday sell (short): ${order.quantity} ${order.symbol} @ Rs ${executionPrice}`,
-      });
     }
 
     await position.save();
   } else if (position && position.quantity < 0) {
-    // Adding to short position
+    // Adding to existing short position
+    // Margin for this additional quantity was already locked at order placement — no wallet change
     position.addQuantity(-order.quantity, executionPrice, order._id);
     await position.save();
-
-    // Note: Margin was already reserved at order placement time
-    // Just credit the sale proceeds
-    const proceeds = order.quantity * executionPrice - order.totalCharges;
-    await fundManager.creditSaleProceeds(order.userId, proceeds, order._id, {
-      reason: 'stock_sell',
-      description: `Intraday sell (add to short): ${order.quantity} ${order.symbol} @ Rs ${executionPrice}`,
-    });
   } else {
-    // New short position (short selling)
+    // New short position — margin (20%) was locked at order placement, no wallet change at execution
     position = await Position.create({
       userId: order.userId,
       walletId: wallet._id,
@@ -269,14 +354,7 @@ const handleIntradaySell = async (order, executionPrice) => {
       orderIds: [order._id],
       expiresAt: calculateExpiryTime('intraday'),
     });
-
-    // Margin already reserved at order placement time
-    // Credit sale proceeds after short sell execution
-    const proceeds = order.quantity * executionPrice - order.totalCharges;
-    await fundManager.creditSaleProceeds(order.userId, proceeds, order._id, {
-      reason: 'stock_sell',
-      description: `Intraday sell (new short): ${order.quantity} ${order.symbol} @ Rs ${executionPrice}`,
-    });
+    // Margin stays locked until squareoff — no further wallet change at execution
   }
 
   return { position };
